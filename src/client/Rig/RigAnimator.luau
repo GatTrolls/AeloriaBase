@@ -20,7 +20,7 @@ local Clip = require(ReplicatedStorage.Shared.Anim.Clip)
 local Locomotion = require(ReplicatedStorage.Shared.Anim.Locomotion)
 local Pose = require(ReplicatedStorage.Shared.Anim.Pose)
 
-local R15Rig = require(script.Parent.R15Rig)
+local RigTypes = require(script.Parent.Rig)
 
 export type Locomotion = {
 	-- "ground" | "air" | "glide" | "climb" | "plunge" | "frozen"
@@ -54,7 +54,7 @@ export type Action = {
 }
 
 export type Animator = {
-	rig: R15Rig.Rig,
+	rig: RigTypes.Rig,
 	t: number,
 	phase: number,
 	locomotion: Locomotion,
@@ -77,7 +77,7 @@ local function smoothStep(current: number, target: number, rate: number, dt: num
 	return current + (target - current) * (1 - math.exp(-rate * dt))
 end
 
-function RigAnimator.new(rig: R15Rig.Rig): Animator
+function RigAnimator.new(rig: RigTypes.Rig): Animator
 	return {
 		rig = rig,
 		t = 0,
@@ -299,14 +299,14 @@ function RigAnimator.update(animator: Animator, dt: number, rootCFrame: CFrame)
 	pose = Pose.add(pose, { neck = { animator.look[2], animator.look[1], 0 } }, 1)
 
 	animator.pose = pose
-	R15Rig.solve(animator.rig, pose, rootCFrame)
+	animator.rig.solve(animator.rig, pose, rootCFrame)
 	if animator.onSolved then
 		animator.onSolved(animator)
 	end
 end
 
 function RigAnimator.destroy(animator: Animator)
-	R15Rig.destroy(animator.rig)
+	animator.rig.destroy(animator.rig)
 	table.clear(animator.actions)
 end
 
