@@ -1,0 +1,13 @@
+[package]
+name = "gattrolls/aeloria"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+private = true
+
+# Add packages here when a system actually needs them, then run `wally install`.
+# Candidates we expect to use: a Promise library, a Signal, a Trove/Maid for cleanup,
+# and ProfileStore for player data (see docs/architecture.md).
+[dependencies]
+
+[server-dependencies]
