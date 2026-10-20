@@ -272,7 +272,8 @@ local function holdButton(name: string, label: string, color: Color3, onHeld: (b
 	button.InputBegan:Connect(function(input)
 		local kind = input.UserInputType
 		if
-			pressedBy == nil and (kind == Enum.UserInputType.Touch or kind == Enum.UserInputType.MouseButton1)
+			pressedBy == nil
+			and (kind == Enum.UserInputType.Touch or kind == Enum.UserInputType.MouseButton1)
 		then
 			pressedBy = input
 			onHeld(true)

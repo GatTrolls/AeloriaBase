@@ -36,6 +36,7 @@ local distance = Config.Distance
 local focus: Vector3? = nil
 local gamepadLook = Vector2.zero
 local cursorFree = false
+local uiOpen = false
 local lockTarget: Model? = nil
 local shakeAmount = 0
 local touchLookInput: InputObject? = nil
@@ -77,6 +78,14 @@ end
 
 function CameraController.getLockTarget(): Model?
 	return if isValidTarget(lockTarget) then lockTarget else nil
+end
+
+-- A full-screen menu is open: free the cursor and stop turning the camera with it.
+function CameraController.setUiOpen(open: boolean)
+	uiOpen = open
+	if open then
+		touchLookInput = nil
+	end
 end
 
 function CameraController.shake(amount: number)
@@ -143,7 +152,10 @@ local function update(dt: number)
 	local camera = Workspace.CurrentCamera
 	camera.CameraType = Enum.CameraType.Scriptable
 
-	local mouseLocked = not cursorFree and not GuiService.MenuIsOpen and UserInputService.KeyboardEnabled
+	local mouseLocked = not cursorFree
+		and not uiOpen
+		and not GuiService.MenuIsOpen
+		and UserInputService.KeyboardEnabled
 	UserInputService.MouseBehavior = if mouseLocked
 		then Enum.MouseBehavior.LockCenter
 		else Enum.MouseBehavior.Default

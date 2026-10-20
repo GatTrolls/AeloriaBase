@@ -26,6 +26,16 @@ Net.Names = table.freeze({
 	MoveState = "MoveState", -- RemoteEvent: server -> client stamina and movement results
 	PartySwap = "PartySwap", -- RemoteEvent: client -> server (slot)
 	PartyState = "PartyState", -- RemoteEvent: server -> client party snapshot
+	GetProfile = "GetProfile", -- RemoteFunction: () -> the player's profile snapshot (waits for the load)
+	ExchangeStars = "ExchangeStars", -- RemoteFunction: (currencyId, count) -> result
+	StarPick = "StarPick", -- RemoteFunction: (bannerId, itemId) -> result
+	GetPullHistory = "GetPullHistory", -- RemoteFunction: (offset, limit) -> { entries, total }
+	SetArmouryTarget = "SetArmouryTarget", -- RemoteFunction: (itemId) -> result
+	SetSetting = "SetSetting", -- RemoteFunction: (key, value) -> result
+	Progression = "Progression", -- RemoteFunction: (action, ...) -> result (levels, ascension, talents, gear)
+	Dialogue = "Dialogue", -- RemoteEvent: server -> client conversation steps, client -> server choices
+	QuestEvent = "QuestEvent", -- RemoteEvent: client -> server quest triggers (talk, reach, interact)
+	QuestState = "QuestState", -- RemoteEvent: server -> client quest tracker updates
 })
 
 local function getFolder(): Folder

@@ -30,6 +30,14 @@ The game uses these open-source Luau packages, installed with Wally.
 | --- | --- | --- |
 | [ProfileStore](https://github.com/MadStudioRoblox/ProfileStore) by loleris | Session-locked player saves | Apache 2.0 |
 
+## Artwork
+
+Most of the interface icons are adapted from [game-icons.net](https://game-icons.net) and used under
+[CC BY 3.0](https://creativecommons.org/licenses/by/3.0/). Thank you to their artists: Lorc,
+Delapouite, Skoll, sbed, Carl Olsen, Zeromancer and the other contributors. The icons were
+recoloured and outlined to fit the notebook style; the uploaded sheet is referenced from
+`src/client/UI/Icons.luau`.
+
 ## Contributors
 
 Want to help? Read [CONTRIBUTING.md](CONTRIBUTING.md). Contributors are listed here once their

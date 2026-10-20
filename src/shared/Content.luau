@@ -19,11 +19,17 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Enemies = require(script.Parent.Config.Enemies)
 local Heroes = require(script.Parent.Config.Heroes)
+local Items = require(script.Parent.Config.Items)
+local Strings = require(script.Parent.Strings)
 
 type Entry = { displayName: string? }
 type PrivateContent = {
 	heroes: { [string]: Entry }?,
 	enemies: { [string]: Entry }?,
+	-- Real names for everything else the interface shows: currencies, banners, items, places.
+	strings: { [string]: string }?,
+	-- Any other private tables (quests, dialogue, costumes...) are read through Content.section.
+	[string]: any,
 }
 
 local Content = {}
@@ -58,6 +64,58 @@ function Content.heroName(heroId: string, player: Player?): string
 	end
 	local kit = Heroes[heroId]
 	return if kit then kit.displayName else heroId
+end
+
+-- A piece of interface text: the private content first, then the generic English in Strings.
+function Content.text(key: string): string
+	local content = privateContent()
+	local override = content and content.strings and content.strings[key]
+	if override then
+		return override
+	end
+	return Strings[key] or key
+end
+
+-- Fills {name} placeholders in a text key.
+function Content.format(key: string, values: { [string]: any }): string
+	local text = Content.text(key)
+	return (
+		string.gsub(text, "{(%w+)}", function(name)
+			local value = values[name]
+			return if value ~= nil then tostring(value) else "{" .. name .. "}"
+		end)
+	)
+end
+
+-- A whole private table (for example "quests" or "dialogue"), or nil when the place has none.
+function Content.section(name: string): any
+	local content = privateContent()
+	return content and content[name]
+end
+
+-- An item shown in the bag or a pull result: weapons, materials, trinkets and unannounced heroes.
+function Content.itemName(itemId: string): string
+	local content = privateContent()
+	local items = content and content.items
+	local entry = items and items[itemId]
+	if entry and entry.displayName then
+		return entry.displayName
+	end
+	local hero = Heroes[itemId]
+	if hero then
+		return Content.heroName(itemId, nil)
+	end
+	local item = Items.get(itemId)
+	return Strings["item." .. itemId] or (item and item.name) or itemId
+end
+
+-- An image for an item (a banner splash or card portrait) from the private content, or nil. The
+-- repository ships none, so screens fall back to drawn medallions and icons.
+function Content.art(itemId: string): string?
+	local content = privateContent()
+	local art = content and content.art
+	local entry = art and art[itemId]
+	return if type(entry) == "string" and entry ~= "" then entry else nil
 end
 
 function Content.enemyName(enemyId: string): string
