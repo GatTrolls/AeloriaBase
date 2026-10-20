@@ -1,0 +1,27 @@
+name: Feature or system
+description: A new feature, system or change to how the game plays
+labels: ["type: feature", "status: triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem or player need does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: How it should work. Link the design doc section if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: A short list of checks that prove it works.
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Milestone
+      options: [M0 Foundation, M1 Combat slice, M2 Core loop, M3 First region, M4 Closed alpha, M5 Launch, Later]

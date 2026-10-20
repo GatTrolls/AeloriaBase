@@ -1,0 +1,31 @@
+name: Content or asset
+description: A character, enemy, model, animation, VFX, map area, UI art, music or sound
+labels: ["type: content", "status: triage"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options: [Character, Enemy, Weapon, Prop, Environment, Animation, VFX, UI, Music, Sound, Other]
+    validations:
+      required: true
+  - type: input
+    id: placeholder
+    attributes:
+      label: Placeholder id
+      description: Use the placeholder id, not the final name, until it is announced.
+      placeholder: hero_placeholder_a
+  - type: textarea
+    id: brief
+    attributes:
+      label: Brief
+      description: What it is, references, and the style guide rules it must follow.
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Source and license
+      description: Who makes it (team, AI-assisted, commissioned, marketplace) and under what license.
+    validations:
+      required: true

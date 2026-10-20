@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in the game or tools is broken
+labels: ["type: bug", "status: triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Join the test place
+        2. Swap to the second party member mid-dodge
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [Combat, Movement, Party, Gacha, Inventory, Quests, UI, World, Save data, Performance, Tools / CI, Other]
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      multiple: true
+      options: [PC, Mobile, Tablet, Console, Studio]
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      placeholder: v0.1.0 or a commit hash
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots, video or console output

@@ -1,0 +1,24 @@
+# Build output
+/build/
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+!/assets/**/*.rbxm
+!/assets/**/*.rbxmx
+
+# Packages (installed by Wally)
+/Packages/*
+/ServerPackages/
+/DevPackages/
+
+# Generated tooling files
+sourcemap.json
+roblox.yml
+*.lock.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+!/Packages/.gitkeep
