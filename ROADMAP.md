@@ -16,12 +16,13 @@ Farborn is built in milestones. Each one ends with something people can play or 
 One minute of combat that feels great, in a test arena.
 
 - [x] Third-person camera, sprint, dodge, climb and glide
-- [x] Playable heroes with attack chain, skill and burst (four placeholder kits)
+- [x] Playable heroes with attack chains, charged attacks, plunges, Techniques, Finales and Relays
 - [x] Party of up to four with instant swap
 - [x] Elements and reactions in live combat
-- [x] One enemy type with telegraphed attacks, hit-stop and damage numbers
+- [x] Grunts and an elite with telegraphed attacks, Composure, hit-stop and damage numbers
+- [x] Slips, Lifts, Covers and Pile-Ons
 - [x] Server-validated hits and cooldowns
-- [ ] Playtest pass on feel and balance
+- [ ] Playtest pass on feel and balance, on a phone
 
 ## M2 · Core loop
 

@@ -51,17 +51,21 @@ currency earned in game until the paid-random-item checks in
 ## Combat
 
 Combat follows the same split as everything else. The rules are pure modules in
-`src/shared/Combat` (`Ability`, `Party`, `Stamina`, `EnemyBrain`) with Lune tests, and
+`src/shared/Combat` (`Ability`, `Defense`, `Party`, `Stamina`, `EnemyBrain`) with Lune tests, and
 server services apply them:
 
 | Service | Owns |
 | --- | --- |
-| `CombatService` | Attack, skill and burst requests: timing, hitboxes, elements, damage |
+| `CombatService` | Attack, charged, plunge, Technique and Finale requests; Relays, Covers and Pile-Ons |
 | `PartyService` | Each player's party, per-hero HP and energy, swaps, the hero weapon |
-| `MovementService` | Stamina, sprint speed, dodge invulnerability, speed sampling |
+| `MovementService` | Grip, sprint speed, dodge charges, height history for plunges, speed sampling |
 | `EnemyService` | Spawning and running enemies, telegraphs and strikes |
 | `ArenaService` | The grey-box test arena when a place has none |
 | `DevService` | Studio-only test commands |
+
+Three server helpers in `src/server/Combat` sit between them: `HitResolver` turns one hit on one
+enemy into its outcome, `AbilityRunner` plays the steps of Techniques, Finales and Relays, and
+`ActionLog` remembers when each player last attacked and dodged.
 
 On the client, `CameraController`, `MovementController`, `CombatController`,
 `PartyController` and `HudController` handle input and presentation, and `Client.Effects`

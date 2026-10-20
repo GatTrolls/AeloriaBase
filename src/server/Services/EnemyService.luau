@@ -28,6 +28,7 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local CombatConfig = require(Shared.Config.CombatConfig)
+local Content = require(Shared.Content)
 local Damage = require(Shared.Damage)
 local Defense = require(Shared.Combat.Defense)
 local ElementConfig = require(Shared.Config.ElementConfig)
@@ -173,7 +174,7 @@ local function buildModel(def: Enemies.EnemyDef, cframe: CFrame): (Model, BasePa
 	humanoid.Parent = model
 
 	model:SetAttribute("EnemyId", def.id)
-	model:SetAttribute("DisplayName", def.displayName)
+	model:SetAttribute("DisplayName", Content.enemyName(def.id))
 	model:SetAttribute("Tier", def.tier)
 	model:SetAttribute("MaxHealth", def.stats.maxHp)
 	model:SetAttribute("Health", def.stats.maxHp)

@@ -28,6 +28,7 @@ local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
+local Content = require(ReplicatedStorage.Shared.Content)
 local ElementStyle = require(ReplicatedStorage.Shared.Config.ElementStyle)
 local Heroes = require(ReplicatedStorage.Shared.Config.Heroes)
 
@@ -402,7 +403,7 @@ local function refreshParty()
 		if member then
 			local kit = Heroes[member.heroId]
 			local active = slot == snapshot.active
-			row.name.Text = kit.displayName
+			row.name.Text = Content.heroName(member.heroId, player)
 			row.pip.BackgroundColor3 = rgb(ElementStyle.Elements[kit.element] or ElementStyle.Physical)
 			row.fill.Size = UDim2.fromScale(math.clamp(member.hp / member.maxHp, 0, 1), 1)
 			row.button.BackgroundTransparency = if active then 0.1 else 0.45
