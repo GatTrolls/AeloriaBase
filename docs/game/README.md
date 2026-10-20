@@ -10,7 +10,7 @@
 | **Audience** | Kids and teens; aiming for a Minimal or Mild Roblox maturity label |
 | **Price** | Free to play |
 | **Launch scope (1.0)** | Prologue plus the first two nations |
-| **Status** | Pre-production |
+| **Status** | Pre-production; the combat slice is playable in a test arena |
 
 ## The pitch
 

@@ -2,7 +2,7 @@
 
 Farborn is built in milestones. Each one ends with something people can play or see.
 
-## M0 · Foundation (now)
+## M0 · Foundation
 
 - [x] Rojo project, toolchain and CI
 - [x] Player data service (starter)
@@ -11,16 +11,17 @@ Farborn is built in milestones. Each one ends with something people can play or 
 - [ ] Art style guide
 - [ ] Story and world locked for 1.0
 
-## M1 · Combat slice
+## M1 · Combat slice (now)
 
 One minute of combat that feels great, in a test arena.
 
-- [ ] Third-person camera, sprint, dodge, climb and glide
-- [ ] One playable hero with attack chain, skill and burst
-- [ ] Party of up to four with instant swap
-- [ ] Elements and reactions in live combat
-- [ ] One enemy type with telegraphed attacks, hit-stop and damage numbers
-- [ ] Server-validated hits and cooldowns
+- [x] Third-person camera, sprint, dodge, climb and glide
+- [x] Playable heroes with attack chain, skill and burst (four placeholder kits)
+- [x] Party of up to four with instant swap
+- [x] Elements and reactions in live combat
+- [x] One enemy type with telegraphed attacks, hit-stop and damage numbers
+- [x] Server-validated hits and cooldowns
+- [ ] Playtest pass on feel and balance
 
 ## M2 · Core loop
 

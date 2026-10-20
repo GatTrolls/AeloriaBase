@@ -48,15 +48,31 @@ published odds. Because it has no Roblox dependencies it is unit tested with Lun
 currency earned in game until the paid-random-item checks in
 [systems/platform-rules.md](systems/platform-rules.md) are wired into the shop.
 
+## Combat
+
+Combat follows the same split as everything else. The rules are pure modules in
+`src/shared/Combat` (`Ability`, `Party`, `Stamina`, `EnemyBrain`) with Lune tests, and
+server services apply them:
+
+| Service | Owns |
+| --- | --- |
+| `CombatService` | Attack, skill and burst requests: timing, hitboxes, elements, damage |
+| `PartyService` | Each player's party, per-hero HP and energy, swaps, the hero weapon |
+| `MovementService` | Stamina, sprint speed, dodge invulnerability, speed sampling |
+| `EnemyService` | Spawning and running enemies, telegraphs and strikes |
+| `ArenaService` | The grey-box test arena when a place has none |
+| `DevService` | Studio-only test commands |
+
+On the client, `CameraController`, `MovementController`, `CombatController`,
+`PartyController` and `HudController` handle input and presentation, and `Client.Effects`
+builds every combat effect from parts and UI. Details: [systems/combat.md](systems/combat.md).
+
 ## Planned systems
 
 | System | Side | Notes |
 | --- | --- | --- |
-| Combat | Server authoritative hits, client prediction for feel | Hitboxes via spatial queries, hit-stop and VFX on client |
-| Party and swap | Both | Up to 4 heroes, swap cooldown in config |
-| Elements and reactions | Shared data, server resolves | Reaction table as config |
 | Characters and stats | Shared data | Levels, ascension, talents |
 | Inventory and gear | Server | Stored in the profile |
 | Quests and dialogue | Both | Data-driven, script ids not text in code |
 | World streaming | Engine | StreamingEnabled, region models under Workspace |
-| UI | Client | Built in code or with a UI library chosen in M1 |
+| Menus | Client | Built in code, following the combat HUD |
