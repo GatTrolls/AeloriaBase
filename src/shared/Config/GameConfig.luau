@@ -3,11 +3,11 @@
 -- module, never inline in a service.
 
 local GameConfig = {
-	-- Bump when the saved data shape changes, and add a migration in PlayerDataService.
+	-- Bump when the saved data shape changes, and add a step in Data/Migrations.
 	DataVersion = 1,
-	-- ProfileStore's DataStore. Saves made before session locking used "PlayerData_v1".
+	-- ProfileStore's DataStore, which also handles autosaving. Saves made before session locking
+	-- used "PlayerData_v1".
 	DataStoreName = "Profiles_v1",
-	AutosaveSeconds = 120,
 
 	Party = {
 		MaxMembers = 4,
