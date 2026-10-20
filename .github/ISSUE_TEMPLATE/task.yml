@@ -1,5 +1,5 @@
 name: Task
-description: Chores, tooling, docs, community or operations work
+description: Chores, tooling or documentation work
 labels: ["type: task"]
 body:
   - type: textarea

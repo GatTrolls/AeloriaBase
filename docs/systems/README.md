@@ -12,6 +12,7 @@ covered by tests; "Designed" means the design is set and the code is next on the
 | [Wish system](wish-system.md) | `src/shared/Gacha.luau`, `src/server/Services/GachaService.luau` | `tests/Gacha.spec.luau` | Built |
 | [Elemental reactions](elemental-reactions.md) | `src/shared/Elements.luau`, `src/shared/Config/ElementConfig.luau` | `tests/Elements.spec.luau` | Built |
 | [Damage model](damage-model.md) | `src/shared/Damage.luau` | `tests/Damage.spec.luau` | Built |
+| [Platform rules](platform-rules.md) | `GachaService`, `PlayerDataService` | | Applied |
 | [Planned systems](planned.md) | Combat, party, movement, enemy AI, world, progression, quests, co-op, UI, anti-exploit | | Designed |
 
 ## How the pieces fit

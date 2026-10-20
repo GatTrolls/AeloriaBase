@@ -1,7 +1,7 @@
-# Roblox rules we design around
+# Platform rules
 
-Rules change; re-check the Roblox Creator Docs and Community Standards before each milestone.
-Last reviewed 2026-10-20.
+**Status:** applies to every system · How Farborn's code follows Roblox's rules for random items,
+content and player safety. Last reviewed 2026-10-20.
 
 ## Gacha and paid random items
 
@@ -19,8 +19,8 @@ Last reviewed 2026-10-20.
 
 ## Age rating
 
-- The target audience is kids and teens, so aim for a **Minimal** or **Mild** content maturity
-  label. Complete the Maturity & Compliance Questionnaire before the experience is public.
+- The target audience is kids and teens, so content is built for a **Minimal** or **Mild**
+  Roblox maturity label.
 - Keep violence stylised (no blood, no gore), no romance beyond friendship, no real-world
   religion, gambling imagery or alcohol focus.
 
@@ -30,14 +30,6 @@ Last reviewed 2026-10-20.
   `TextService` filtering on the server.
 - Do not collect personal information. No in-game forms that ask for email, age, socials or
   location.
-
-## Social links and off-platform
-
-- Use the experience's **Social Links** setting for Discord, YouTube, X and similar. Roblox only
-  shows them to eligible users.
-- In-game mentions of external sites must check `PolicyInfo.AllowedExternalLinkReferences`.
-- Do not reward players for actions off Roblox (following accounts, joining Discord) unless the
-  current rules clearly allow it. Promo codes posted on socials are the usual safe pattern.
 
 ## Originality
 

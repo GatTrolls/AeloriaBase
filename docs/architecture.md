@@ -46,7 +46,7 @@ When the profile shape changes, bump `GameConfig.DataVersion` and add a migratio
 published odds. Because it has no Roblox dependencies it is unit tested with Lune
 (`tests/Gacha.spec.luau`). `GachaService` is the only place rolls happen, and it spends only
 currency earned in game until the paid-random-item checks in
-[operations/compliance.md](operations/compliance.md) are wired into the shop.
+[systems/platform-rules.md](systems/platform-rules.md) are wired into the shop.
 
 ## Planned systems
 

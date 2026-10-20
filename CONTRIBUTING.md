@@ -24,7 +24,7 @@
 - Only commit assets you made or have the right to use. Note the source and license of any
   third-party asset in the PR.
 - Farborn is made for a broad audience including younger players. Keep content in line with
-  Roblox's Community Standards and the target age rating in docs/operations/compliance.md.
+  Roblox's Community Standards and the target age rating in docs/systems/platform-rules.md.
 
 ## Commit messages
 

@@ -4,7 +4,7 @@
 
 	Handles wish requests. All rolls happen here, using the pure logic in Shared.Gacha.
 
-	Roblox rules this service follows (details in docs/operations/compliance.md):
+	Roblox rules this service follows (details in docs/systems/platform-rules.md):
 	  * Odds are published to the client through GetBannerOdds and must be shown before buying.
 	  * In regions where paid random items are restricted (PolicyService), players can only
 	    wish with currency earned in game, never with currency bought for Robux.
