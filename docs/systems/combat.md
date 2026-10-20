@@ -4,7 +4,8 @@
 `src/server/Combat/HitResolver.luau`, `src/server/Combat/AbilityRunner.luau`,
 `src/shared/Combat/Ability.luau`, `src/shared/Combat/Defense.luau`, `src/shared/Config/Heroes.luau`,
 `src/client/Controllers/CombatController.luau`, `src/client/Effects.luau`,
-`src/client/Controllers/HudController.luau` · **Tests:** `tests/Ability.spec.luau`, `tests/Defense.spec.luau`
+`src/client/Controllers/HudController.luau`, `src/client/TouchLayout.luau` · **Tests:** `tests/Ability.spec.luau`,
+`tests/Defense.spec.luau`, `tests/TouchLayout.spec.luau`
 
 ## The loop
 
@@ -117,9 +118,11 @@ All effects are built from parts and UI at runtime, so the slice needs no upload
 - HP bar with shield overlay, a Grip bar that shows only while Grip is spent, and dodge pips.
 - Technique button with its cooldown and Finale button that fills with energy and glows when ready.
 - Above each enemy: health, the status icon, a Composure bar on elites and the attack glint.
-- Touch: attack, dodge (hold to sprint) and lock-on buttons, laid out around Roblox's thumbstick
-  and jump button. The layout follows the last input used, so keyboard, gamepad and touch can be
-  mixed on one device.
+- Touch: attack, dodge (hold to sprint) and lock-on buttons. `TouchLayout` places them, with
+  Technique and Finale, around Roblox's jump button and clear of the thumbstick, and grows them on
+  tablets, where the jump button is bigger. Held buttons let go when the finger lifts, even if it
+  slid off the button first. The layout follows the last input used, so keyboard, gamepad and
+  touch can be mixed on one device.
 
 ## Controls
 
