@@ -28,6 +28,8 @@ type PrivateContent = {
 	enemies: { [string]: Entry }?,
 	-- Real names for everything else the interface shows: currencies, banners, items, places.
 	strings: { [string]: string }?,
+	-- How each hero is drawn: { assetId, texture, map, meshName }. See Content.visual.
+	visuals: { [string]: { [string]: any } }?,
 	-- Any other private tables (quests, dialogue, costumes...) are read through Content.section.
 	[string]: any,
 }
@@ -107,6 +109,27 @@ function Content.itemName(itemId: string): string
 	end
 	local item = Items.get(itemId)
 	return Strings["item." .. itemId] or (item and item.name) or itemId
+end
+
+-- How a hero is drawn: a skinned model uploaded for the game (asset id, texture, bone map), kept in
+-- the private content because it shows unannounced designs. nil means the default body.
+function Content.visual(heroId: string): { [string]: any }?
+	local content = privateContent()
+	local visuals = content and content.visuals
+	local entry = visuals and visuals[heroId]
+	return if type(entry) == "table" then entry else nil
+end
+
+-- Every hero id that has a model, for the server to load.
+function Content.visualIds(): { string }
+	local content = privateContent()
+	local out = {}
+	if content and content.visuals then
+		for heroId in content.visuals do
+			table.insert(out, heroId)
+		end
+	end
+	return out
 end
 
 -- An image for an item (a banner splash or card portrait) from the private content, or nil. The

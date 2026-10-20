@@ -16,6 +16,7 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 
 local ElementStyle = require(ReplicatedStorage.Shared.Config.ElementStyle)
+local Registry = require(script.Parent.Rig.Registry)
 
 local Effects = {}
 
@@ -290,6 +291,10 @@ end
 
 -- Freezes the character's animations for a moment, which is what makes a hit feel solid.
 function Effects.hitStop(character: Model, seconds: number)
+	local entry = Registry.get(character)
+	if entry then
+		entry.freeze(seconds)
+	end
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
 	if not animator then
@@ -311,7 +316,7 @@ function Effects.flash(character: Model, color: Color3, seconds: number)
 	highlight.FillColor = color
 	highlight.OutlineColor = color
 	highlight.FillTransparency = 0.5
-	highlight.Parent = character
+	highlight.Parent = Registry.visualModel(character)
 	TweenService:Create(highlight, TweenInfo.new(seconds), { FillTransparency = 1, OutlineTransparency = 1 })
 		:Play()
 	Debris:AddItem(highlight, seconds + 0.05)

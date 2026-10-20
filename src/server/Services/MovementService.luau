@@ -70,6 +70,11 @@ local function send(player: Player, state: PlayerState, extra: { [string]: any }
 	message.max = StaminaConfig.Max
 	message.activity = state.stamina.activity
 	state.lastSentValue = state.stamina.value
+	-- Other players' clients animate this player's body from it (climbing, gliding).
+	local character = player.Character
+	if character then
+		character:SetAttribute("Activity", state.stamina.activity)
+	end
 	stateRemote:FireClient(player, message)
 end
 

@@ -74,6 +74,7 @@ export type Kit = {
 	rarity: number,
 	role: string,
 	color: { number }, -- RGB 0-255
+	idle: string?, -- standing idle style (Shared.Anim.Idles); nil is the default breathing idle
 	stats: {
 		maxHp: number,
 		attack: number,
@@ -202,6 +203,7 @@ local Heroes: { [string]: Kit } = {
 		rarity = 4,
 		role = "Healer",
 		color = { 90, 168, 236 },
+		idle = "gentle",
 		stats = { maxHp = 1250, attack = 150, defense = 650, critRate = 0.05, critDamage = 0.5, level = 20 },
 		chain = {
 			hit(0.4, 8.5, 60, 0.4, 8),
@@ -275,6 +277,7 @@ local Heroes: { [string]: Kit } = {
 		rarity = 4,
 		role = "Debuffer",
 		color = { 127, 208, 240 },
+		idle = "folded",
 		stats = { maxHp = 1000, attack = 175, defense = 550, critRate = 0.1, critDamage = 0.6, level = 20 },
 		chain = {
 			hit(0.42, 14, 40, 0.55, 6),
@@ -337,6 +340,7 @@ local Heroes: { [string]: Kit } = {
 		rarity = 4,
 		role = "Sub-damage",
 		color = { 240, 115, 85 },
+		idle = "tinkerer",
 		stats = { maxHp = 1300, attack = 210, defense = 620, critRate = 0.08, critDamage = 0.5, level = 20 },
 		chain = {
 			hit(0.75, 8, 150, 0.6, 30),

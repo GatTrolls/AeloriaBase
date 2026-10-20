@@ -136,16 +136,18 @@ function Locomotion.gait(speed: number, phase: number): Pose.Pose
 end
 
 -- Idle and gait cross-faded by speed, so a character easing to a stop settles into breathing.
-function Locomotion.ground(speed: number, phase: number, t: number): Pose.Pose
+-- `idle` is the hero's own idle style (Shared.Anim.Idles); the default is Locomotion.idle.
+function Locomotion.ground(speed: number, phase: number, t: number, idle: ((number) -> Pose.Pose)?): Pose.Pose
+	local idlePose = idle or Locomotion.idle
 	local weight = smooth((speed - 0.4) / 3.2)
 	if weight <= 0 then
-		return Locomotion.idle(t)
+		return idlePose(t)
 	end
 	local gait = Locomotion.gait(speed, phase)
 	if weight >= 1 then
 		return gait
 	end
-	return Pose.lerp(Locomotion.idle(t), gait, weight)
+	return Pose.lerp(idlePose(t), gait, weight)
 end
 
 -- Airborne: rising tucks the legs and lifts the arms, falling spreads them. `vy` is vertical

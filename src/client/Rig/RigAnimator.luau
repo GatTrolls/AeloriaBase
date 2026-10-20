@@ -69,6 +69,8 @@ export type Animator = {
 	pose: Pose.Pose,
 	-- Called with the solved pose after every update (cloth, trails and weapons hook in here).
 	onSolved: ((Animator) -> ())?,
+	-- The hero's own standing idle (Shared.Anim.Idles); nil uses Locomotion.idle.
+	idle: ((number) -> Pose.Pose)?,
 }
 
 local RigAnimator = {}
@@ -92,6 +94,7 @@ function RigAnimator.new(rig: RigTypes.Rig): Animator
 		lastVelocity = Vector3.zero,
 		pose = {},
 		onSolved = nil,
+		idle = nil,
 	}
 end
 
@@ -209,7 +212,7 @@ local function basePose(animator: Animator): Pose.Pose
 	elseif state == "plunge" then
 		return Locomotion.air(-60, animator.t)
 	end
-	return Locomotion.ground(l.speed, animator.phase, animator.t)
+	return Locomotion.ground(l.speed, animator.phase, animator.t, animator.idle)
 end
 
 -- Advances time and the gait, blends every layer, solves the rig at `rootCFrame`.

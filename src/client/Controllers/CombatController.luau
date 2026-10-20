@@ -30,6 +30,7 @@ local CameraController = require(script.Parent.CameraController)
 local Effects = require(script.Parent.Parent.Effects)
 local MovementController = require(script.Parent.MovementController)
 local PartyController = require(script.Parent.PartyController)
+local Registry = require(script.Parent.Parent.Rig.Registry)
 
 local player = Players.LocalPlayer
 
@@ -78,13 +79,28 @@ local function playSwing(
 	if not hit then
 		return
 	end
-	Effects.swingArm(character, hit.heavy)
+	local rig = Registry.get(character)
+	if rig then
+		rig.play(action, { weapon = kit.weapon, index = index, heavy = hit.heavy })
+	else
+		Effects.swingArm(character, hit.heavy)
+	end
 	if kit.weapon == "focus" or kit.weapon == "bow" then
 		Effects.bolt(origin, forward, hit.range, Effects.elementColor(kit.element))
 	elseif hit.arc >= 360 then
 		Effects.area(origin, hit.range, color, false)
 	else
 		Effects.slash(origin, forward, hit.range, hit.arc, color, hit.heavy)
+	end
+end
+
+-- A Technique or Finale: the rig's cast animation, or the plain arm swing without one.
+local function playCast(character: Model, name: string, kit: Heroes.Kit)
+	local rig = Registry.get(character)
+	if rig then
+		rig.play(name, { weapon = kit.weapon })
+	else
+		Effects.swingArm(character, true)
 	end
 end
 
@@ -139,13 +155,13 @@ local function perform(action: Action): boolean
 		local element = if kit.chainIsElemental then kit.element else nil
 		playSwing(character, kit, action, index, root.Position, forward, element)
 	elseif action == "technique" then
-		Effects.swingArm(character, true)
+		playCast(character, "technique", kit)
 		local first = kit.technique.steps[1]
 		if first and first.kind == "dash" then
 			MovementController.dash(forward, first.length or 10, first.seconds or 0.25)
 		end
 	else
-		Effects.swingArm(character, true)
+		playCast(character, "finale", kit)
 		Effects.flash(character, Effects.elementColor(kit.element), 0.6)
 		CameraController.shake(0.9)
 	end
@@ -297,7 +313,7 @@ local function onFeedback(message: { [string]: any })
 		local character = attacker and attacker.Character
 		local kit = Heroes[message.heroId]
 		if not mine and character and kit then
-			Effects.swingArm(character, true)
+			playCast(character, if message.part == "finale" then "finale" else "technique", kit)
 			Effects.flash(
 				character,
 				Effects.elementColor(kit.element),
@@ -342,6 +358,10 @@ local function onFeedback(message: { [string]: any })
 				if victim.evaded then
 					Effects.popup(root.Position, "EVADE", Color3.fromRGB(220, 240, 255), 1)
 				elseif victim.amount and victim.amount > 0 then
+					local victimRig = Registry.get(character)
+					if victimRig then
+						victimRig.play("hurt", { heavy = message.telegraph == "red" })
+					end
 					Effects.popup(
 						root.Position,
 						tostring(math.floor(victim.amount)),
