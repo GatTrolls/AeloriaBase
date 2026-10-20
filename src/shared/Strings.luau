@@ -230,6 +230,9 @@ local Strings: { [string]: string } = {
 	["map.waystone"] = "Waystone",
 	["map.starwell"] = "Starwell",
 	["map.unknown"] = "Unexplored",
+	["map.camp"] = "Camp",
+	["map.landmark"] = "Landmark",
+	["map.undiscovered"] = "{count} still to discover",
 
 	-- Generic buttons and labels
 	["common.back"] = "Back",
