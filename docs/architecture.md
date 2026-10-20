@@ -32,13 +32,13 @@ the server validates every argument and decides. Anything that affects progressi
 
 ## Player data
 
-`PlayerDataService` loads a profile on join, fills missing keys from
-`GameConfig.DefaultProfile`, autosaves and saves on leave and shutdown. It is a starter version
-without session locking. Before the closed alpha it must move to ProfileStore so data cannot be
-duplicated or rolled back across servers. Keep using `PlayerDataService.get` and `waitFor`, so
-the swap does not touch other services.
+`PlayerDataService` opens each player's profile with ProfileStore, which session-locks it so it
+can't be duplicated or rolled back across servers. It fills missing keys from
+`GameConfig.DefaultProfile`, runs `Data/Migrations` for older saves, and ProfileStore autosaves
+and saves on leave and shutdown. Other services only use `PlayerDataService.get` and `waitFor`.
 
 When the profile shape changes, bump `GameConfig.DataVersion` and add a migration step.
+Details: [systems/player-data.md](systems/player-data.md).
 
 ## Gacha
 

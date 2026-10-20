@@ -6,8 +6,7 @@ realm = "shared"
 private = true
 
 # Add packages here when a system actually needs them, then run `wally install`.
-# Candidates we expect to use: a Promise library, a Signal, a Trove/Maid for cleanup,
-# and ProfileStore for player data (see docs/architecture.md).
 [dependencies]
 
 [server-dependencies]
+ProfileStore = "lm-loleris/profilestore@1.0.3"

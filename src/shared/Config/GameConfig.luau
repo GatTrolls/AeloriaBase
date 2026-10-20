@@ -3,10 +3,11 @@
 -- module, never inline in a service.
 
 local GameConfig = {
-	-- Bump when the saved data shape changes, and add a migration in PlayerDataService.
+	-- Bump when the saved data shape changes, and add a step in Data/Migrations.
 	DataVersion = 1,
-	DataStoreName = "PlayerData_v1",
-	AutosaveSeconds = 120,
+	-- ProfileStore's DataStore, which also handles autosaving. Saves made before session locking
+	-- used "PlayerData_v1".
+	DataStoreName = "Profiles_v1",
 
 	Party = {
 		MaxMembers = 4,
@@ -24,6 +25,12 @@ local GameConfig = {
 	Gacha = {
 		PullCost = 160, -- in wish currency
 		MaxPullsPerRequest = 10,
+	},
+
+	Travel = {
+		-- After using a travel pad, a player can't use another for this long, so arriving on a
+		-- pad doesn't bounce them straight back.
+		PadCooldownSeconds = 2,
 	},
 
 	-- Data every new player starts with.

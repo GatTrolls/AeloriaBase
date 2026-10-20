@@ -7,7 +7,10 @@
 3. Run `rojo plugin install` to add the Rojo plugin to Studio.
 4. Optional: VS Code with the recommended extensions in `.vscode/extensions.json`
    (Luau LSP, StyLua, Selene, Rojo).
-5. Run `wally install` whenever `wally.toml` changes.
+5. Run `wally install` to fetch packages (ProfileStore for saves), and again whenever
+   `wally.toml` changes. Without it the game still runs, with temporary saves.
+6. In Studio, turn on Game Settings > Security > Enable Studio Access to API Services so saves
+   work while play-testing.
 
 ## Daily loop
 

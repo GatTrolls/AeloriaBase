@@ -9,7 +9,7 @@
 
 # Packages (installed by Wally)
 /Packages/*
-/ServerPackages/
+/ServerPackages/*
 /DevPackages/
 
 # Generated tooling files
@@ -22,3 +22,4 @@ roblox.yml
 Thumbs.db
 *.swp
 !/Packages/.gitkeep
+!/ServerPackages/.gitkeep

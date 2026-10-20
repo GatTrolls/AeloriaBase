@@ -31,7 +31,7 @@ Every system is designed and built by Owl On The Moon Studios. Full write-ups ar
 | --- | --- | --- |
 | [Service framework](docs/systems/framework.md) | Two-phase Init/Start loading for server services and client controllers | Built |
 | [Networking](docs/systems/networking.md) | One registry for all remotes; server-authoritative by rule | Built |
-| [Player data](docs/systems/player-data.md) | Profiles with retries, reconcile, autosave and safe shutdown | Built (starter) |
+| [Player data](docs/systems/player-data.md) | Session-locked saves with ProfileStore, reconcile and migrations | Built, tested |
 | [Wish system](docs/systems/wish-system.md) | Banners, soft and hard pity, featured 50/50, published odds, regional policy checks | Built, tested |
 | [Elemental reactions](docs/systems/elemental-reactions.md) | Statuses that react: nine reactions from Scald to Starburst | Built, tested |
 | [Damage model](docs/systems/damage-model.md) | Tunable defence, resistance curves, crits, reaction damage and healing | Built, tested |
@@ -83,6 +83,7 @@ You need [Roblox Studio](https://create.roblox.com/) and [Rokit](https://github.
 
 ```sh
 rokit install          # Rojo, Wally, StyLua, Selene and Lune at pinned versions
+wally install          # packages, such as ProfileStore for saves
 rojo plugin install    # adds the Rojo plugin to Studio
 rojo serve             # then click Connect in the Rojo plugin
 lune run tests/run     # runs the unit tests

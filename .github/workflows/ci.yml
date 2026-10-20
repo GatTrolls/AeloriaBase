@@ -30,6 +30,9 @@ jobs:
       - name: Unit tests
         run: lune run tests/run
 
+      - name: Install packages
+        run: wally install
+
       - name: Build place
         run: |
           mkdir -p build
