@@ -37,6 +37,9 @@ local CameraController = require(script.Parent.CameraController)
 local CombatController = require(script.Parent.CombatController)
 local MovementController = require(script.Parent.MovementController)
 local PartyController = require(script.Parent.PartyController)
+local ProfileController = require(script.Parent.ProfileController)
+local Quests = require(ReplicatedStorage.Shared.Config.Quests)
+local Theme = require(script.Parent.Parent.UI.Theme)
 local TouchLayout = require(script.Parent.Parent.TouchLayout)
 
 local player = Players.LocalPlayer
@@ -128,7 +131,7 @@ local function roundButton(
 		BackgroundTransparency = 0.25,
 		Text = label,
 		TextColor3 = PAPER,
-		Font = Enum.Font.GothamBold,
+		FontFace = Theme.Font.heavy,
 		TextSize = math.floor(size * 0.28),
 		AutoButtonColor = true,
 	}, parent)
@@ -171,7 +174,7 @@ local function buildPartyList()
 		corner(button, 10)
 		local stroke = make(
 			"UIStroke",
-			{ Color = PAPER, Thickness = 0, ApplyStrokeMode = Enum.ApplyStrokeMode.Border },
+			{ Color = Theme.Color.brassLight, Thickness = 0, ApplyStrokeMode = Enum.ApplyStrokeMode.Border },
 			button
 		)
 		make("TextLabel", {
@@ -180,7 +183,7 @@ local function buildPartyList()
 			BackgroundTransparency = 1,
 			Text = tostring(slot),
 			TextColor3 = PAPER,
-			Font = Enum.Font.GothamBold,
+			FontFace = Theme.Font.heavy,
 			TextScaled = true,
 		}, button)
 		local pip = make("Frame", {
@@ -197,7 +200,7 @@ local function buildPartyList()
 			Text = "",
 			TextColor3 = PAPER,
 			TextXAlignment = Enum.TextXAlignment.Left,
-			Font = Enum.Font.GothamMedium,
+			FontFace = Theme.Font.bold,
 			TextScaled = true,
 		}, button)
 		local _, fill =
@@ -226,7 +229,7 @@ local function buildBars()
 		BackgroundTransparency = 1,
 		TextColor3 = PAPER,
 		TextStrokeTransparency = 0.5,
-		Font = Enum.Font.GothamMedium,
+		FontFace = Theme.Font.bold,
 		TextSize = 14,
 		Text = "",
 	}, gui)
@@ -343,7 +346,7 @@ local function buildAbilityButtons()
 		TextColor3 = PAPER,
 		TextTransparency = 0.25,
 		TextStrokeTransparency = 0.6,
-		Font = Enum.Font.Gotham,
+		FontFace = Theme.Font.body,
 		TextSize = 13,
 		Text = "",
 	}, gui)
@@ -538,7 +541,7 @@ local function attachEnemyBar(model: Instance)
 		BackgroundTransparency = 1,
 		TextColor3 = PAPER,
 		TextStrokeTransparency = 0.4,
-		Font = Enum.Font.GothamMedium,
+		FontFace = Theme.Font.bold,
 		TextSize = 11,
 		Text = tostring(model:GetAttribute("DisplayName") or ""),
 	}, billboard)
@@ -609,6 +612,65 @@ local function attachEnemyBar(model: Instance)
 	update()
 end
 
+-- The tracked quest, top left under the Notebook button: title and the objective to do next.
+local function buildTracker()
+	local frame = make("Frame", {
+		Name = "QuestTracker",
+		Position = UDim2.fromOffset(12, 64),
+		Size = UDim2.fromOffset(250, 52),
+		BackgroundColor3 = INK,
+		BackgroundTransparency = 0.45,
+		BorderSizePixel = 0,
+		Visible = false,
+	}, gui)
+	corner(frame, 10)
+	make("UIStroke", { Color = Theme.Color.inkLine, Thickness = 1.5, Transparency = 0.4 }, frame)
+	make("Frame", {
+		Size = UDim2.new(0, 3, 1, -16),
+		Position = UDim2.fromOffset(8, 8),
+		BackgroundColor3 = Theme.Color.brassLight,
+		BorderSizePixel = 0,
+	}, frame)
+	local title = make("TextLabel", {
+		Size = UDim2.new(1, -28, 0, 22),
+		Position = UDim2.fromOffset(20, 4),
+		BackgroundTransparency = 1,
+		TextColor3 = Theme.Color.brassLight,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		FontFace = Theme.Font.heavy,
+		TextSize = 15,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Text = "",
+	}, frame)
+	local objective = make("TextLabel", {
+		Size = UDim2.new(1, -28, 0, 20),
+		Position = UDim2.fromOffset(20, 26),
+		BackgroundTransparency = 1,
+		TextColor3 = PAPER,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		FontFace = Theme.Font.body,
+		TextSize = 14,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		Text = "",
+	}, frame)
+	ProfileController.onChanged(function(snapshot)
+		local state = Quests.normalize(snapshot and snapshot.quests)
+		local progress = state.active[state.tracked]
+		local quest = Quests.get(state.tracked)
+		if not (progress and quest) then
+			frame.Visible = false
+			return
+		end
+		frame.Visible = true
+		local key = `quest.{quest.id}.title`
+		local text = Content.text(key)
+		title.Text = if text ~= key then text else quest.id
+		local objKey = `quest.{quest.id}.obj{progress.step}`
+		local objText = Content.text(objKey)
+		objective.Text = if objText ~= objKey then objText else quest.objectives[progress.step].target
+	end)
+end
+
 function HudController:Start()
 	gui = make(
 		"ScreenGui",
@@ -617,6 +679,7 @@ function HudController:Start()
 	)
 
 	buildPartyList()
+	buildTracker()
 	buildBars()
 	buildAbilityButtons()
 	inputMode = initialMode()
