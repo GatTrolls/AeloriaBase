@@ -9,7 +9,8 @@
 	  * HP and stamina bars (bottom centre). Stamina only shows while it is not full.
 	  * Technique and Finale buttons (bottom right) with the cooldown and Finale energy. They work as
 	    buttons on every platform, and show their key when playing on keyboard.
-	  * Touch only: attack, dodge/sprint and lock-on buttons around the jump button.
+	  * Touch only: attack, dodge/sprint and lock-on buttons, placed around Roblox's jump button
+	    by TouchLayout so they fit phones and tablets.
 	  * Party portraits glow gold when that hero's Relay is ready.
 	  * Dodges left, as pips under the HP bar.
 	  * Above each enemy: health, its status icon, a Composure bar on elites (RATTLED when it
@@ -36,6 +37,7 @@ local CameraController = require(script.Parent.CameraController)
 local CombatController = require(script.Parent.CombatController)
 local MovementController = require(script.Parent.MovementController)
 local PartyController = require(script.Parent.PartyController)
+local TouchLayout = require(script.Parent.Parent.TouchLayout)
 
 local player = Players.LocalPlayer
 
@@ -255,17 +257,46 @@ local function buildBars()
 	end
 end
 
--- A button that reports press and release, for actions that care about holding.
+-- A button that reports press and release, for actions that care about holding. The release
+-- follows the touch that pressed it, so sliding a finger off the button still lets go, and a
+-- second finger on the same button doesn't press it twice.
 local function holdButton(name: string, label: string, color: Color3, onHeld: (boolean) -> ()): TextButton
 	local button = roundButton(gui, name, 60, UDim2.new(), label, color)
-	button.MouseButton1Down:Connect(function()
-		onHeld(true)
+	local pressedBy: InputObject? = nil
+	local function release()
+		if pressedBy then
+			pressedBy = nil
+			onHeld(false)
+		end
+	end
+	button.InputBegan:Connect(function(input)
+		local kind = input.UserInputType
+		if
+			pressedBy == nil and (kind == Enum.UserInputType.Touch or kind == Enum.UserInputType.MouseButton1)
+		then
+			pressedBy = input
+			onHeld(true)
+		end
 	end)
-	button.MouseButton1Up:Connect(function()
-		onHeld(false)
+	UserInputService.InputEnded:Connect(function(input)
+		local pressed = pressedBy
+		if
+			pressed
+			and (
+				input == pressed
+				or (
+					pressed.UserInputType == Enum.UserInputType.MouseButton1
+					and input.UserInputType == Enum.UserInputType.MouseButton1
+				)
+			)
+		then
+			release()
+		end
 	end)
-	button.MouseLeave:Connect(function()
-		onHeld(false)
+	button:GetPropertyChangedSignal("Visible"):Connect(function()
+		if not button.Visible then
+			release()
+		end
 	end)
 	return button
 end
@@ -317,9 +348,23 @@ local function buildAbilityButtons()
 	}, gui)
 end
 
-local function place(object: GuiObject, size: number, x: number, y: number)
-	object.Size = UDim2.fromOffset(size, size)
-	object.Position = UDim2.new(1, x, 1, y)
+local function place(object: GuiObject, spot: TouchLayout.Spot)
+	object.Size = UDim2.fromOffset(spot.size, spot.size)
+	object.Position = UDim2.new(1, spot.x, 1, spot.y)
+end
+
+-- Roblox's touch jump button as TouchLayout expects it: its centre measured from the HUD's
+-- bottom-right corner, and its size. Until the touch controls exist, assume a phone.
+local function jumpButtonSpot(): TouchLayout.Spot
+	local playerGui = gui.Parent
+	local touchGui = playerGui and playerGui:FindFirstChild("TouchGui")
+	local jump = touchGui and touchGui:FindFirstChild("JumpButton", true)
+	if jump and jump:IsA("GuiObject") and jump.AbsoluteSize.X > 0 then
+		local centre = jump.AbsolutePosition + jump.AbsoluteSize / 2
+		local bottomRight = gui.AbsolutePosition + gui.AbsoluteSize
+		return { x = centre.X - bottomRight.X, y = centre.Y - bottomRight.Y, size = jump.AbsoluteSize.X }
+	end
+	return TouchLayout.PhoneJump
 end
 
 -- Lays the HUD out for the current input. Phones put the party list in the top-right corner and
@@ -343,18 +388,19 @@ local function applyLayout()
 	staminaBar.Size = UDim2.fromOffset(if touch then 140 else 200, 6)
 
 	if touch then
+		local spots = TouchLayout.around(jumpButtonSpot())
 		local attack, dodge, lock = touchButtons[1], touchButtons[2], touchButtons[3]
-		place(attack, 80, -150, -75)
-		place(techniqueButton, 56, -235, -55)
-		place(finaleButton, 64, -215, -135)
-		place(dodge, 52, -60, -140)
-		place(lock, 40, -290, -130)
-		attack.TextSize = 18
-		dodge.TextSize = 12
-		lock.TextSize = 11
+		place(attack, spots.Attack)
+		place(dodge, spots.Dodge)
+		place(lock, spots.LockOn)
+		place(techniqueButton, spots.Technique)
+		place(finaleButton, spots.Finale)
+		attack.TextSize = math.floor(spots.Attack.size * 0.23)
+		dodge.TextSize = math.floor(spots.Dodge.size * 0.24)
+		lock.TextSize = math.floor(spots.LockOn.size * 0.28)
 	else
-		place(techniqueButton, 64, -150, -60)
-		place(finaleButton, 80, -66, -76)
+		place(techniqueButton, { x = -150, y = -60, size = 64 })
+		place(finaleButton, { x = -66, y = -76, size = 80 })
 	end
 	for _, button in touchButtons do
 		button.Visible = touch
@@ -582,6 +628,22 @@ function HudController:Start()
 			applyLayout()
 		end
 	end)
+
+	-- Re-place the touch buttons when Roblox's jump button appears or moves, or the screen changes
+	-- size (turning a tablet, for example).
+	local function watchJumpButton(instance: Instance)
+		if instance.Name == "JumpButton" and instance:IsA("GuiObject") then
+			instance:GetPropertyChangedSignal("AbsolutePosition"):Connect(applyLayout)
+			instance:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout)
+			applyLayout()
+		end
+	end
+	local playerGui = gui.Parent :: Instance
+	playerGui.DescendantAdded:Connect(watchJumpButton)
+	for _, descendant in playerGui:GetDescendants() do
+		watchJumpButton(descendant)
+	end
+	gui:GetPropertyChangedSignal("AbsoluteSize"):Connect(applyLayout)
 
 	PartyController.onChanged(refreshParty)
 	RunService.RenderStepped:Connect(function()
