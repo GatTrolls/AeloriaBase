@@ -21,6 +21,10 @@ local Strings: { [string]: string } = {
 	["tab.map"] = "Map",
 	["tab.settings"] = "Settings",
 	["notebook.title"] = "Notebook",
+	["title.name"] = "Farborn",
+	["title.tagline"] = "Every star has a way home.",
+	["title.tap"] = "Tap to begin",
+	["title.version"] = "Early build",
 	["notebook.close"] = "Close",
 
 	-- Starfall
