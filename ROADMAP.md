@@ -5,7 +5,7 @@ Farborn is built in milestones. Each one ends with something people can play or 
 ## M0 · Foundation
 
 - [x] Rojo project, toolchain and CI
-- [x] Player data service (starter)
+- [x] Player data service
 - [x] Wish system with pity and published odds
 - [x] Elemental reaction engine and damage model
 - [ ] Art style guide
@@ -26,7 +26,7 @@ One minute of combat that feels great, in a test arena.
 
 ## M2 · Core loop
 
-- [ ] Session-locked player data and save migrations
+- [x] Session-locked player data and save migrations
 - [ ] Hero levels, ascension, talents and gear
 - [ ] Wish screen with odds, pity counter and history
 - [ ] Inventory, quest tracker and the first story quest

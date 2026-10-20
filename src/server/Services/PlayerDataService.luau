@@ -2,27 +2,42 @@
 --[[
 	PlayerDataService
 
-	Loads, caches and saves each player's profile.
+	Loads, session-locks, upgrades and saves each player's profile with ProfileStore.
 
-	This is a starter implementation: retries, autosave and a final save on shutdown.
-	It does NOT session-lock, so a player who rejoins quickly on another server can in
-	rare cases overwrite newer data. Replace the storage layer with ProfileStore before
-	the closed alpha (tracked in ROADMAP.md, milestone M2). The public API below should
-	stay the same when that happens.
+	  * Session locking: a profile is open on one server at a time, so a player who hops servers
+	    quickly can never duplicate or roll back anything. If another server takes the session,
+	    this server lets go and asks the player to rejoin.
+	  * Autosave and a final save on leave and shutdown are handled by ProfileStore.
+	  * Reconcile: fields added to GameConfig.DefaultProfile appear in old saves automatically.
+	  * Migrations: Data/Migrations upgrades saves from older data versions, one step at a time.
+	  * The player's UserId is attached to their profile so data requests can be honoured.
+
+	Without API access (a fresh Studio place) or without the ProfileStore package installed, the
+	service falls back to temporary profiles and says so in the output, so play-testing still works.
+
+	Other services use `get` and `waitFor`; neither changed when the storage moved to ProfileStore.
 ]]
 
-local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
-local GameConfig = require(game:GetService("ReplicatedStorage").Shared.Config.GameConfig)
+local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
+local Migrations = require(script.Parent.Parent.Data.Migrations)
 
-local MAX_ATTEMPTS = 5
+type Profile = {
+	Data: { [string]: any },
+	OnSessionEnd: { Connect: (self: any, () -> ()) -> any },
+	Reconcile: (self: any) -> (),
+	EndSession: (self: any) -> (),
+	AddUserId: (self: any, number) -> (),
+}
 
 local PlayerDataService = {}
 
-local store: DataStore? = nil
-local profiles: { [Player]: { [string]: any } } = {}
+local store: any = nil
+local profiles: { [Player]: Profile } = {}
+local temporary: { [Player]: { [string]: any } } = {}
 local loadedSignals: { [Player]: BindableEvent } = {}
 
 local function deepCopy<T>(value: T): T
@@ -36,103 +51,101 @@ local function deepCopy<T>(value: T): T
 	return copy :: any
 end
 
--- Fill in any keys added to DefaultProfile since this player last saved.
-local function reconcile(target: { [string]: any }, template: { [string]: any })
-	for key, value in template do
-		if target[key] == nil then
-			target[key] = deepCopy(value)
-		elseif type(value) == "table" and type(target[key]) == "table" then
-			reconcile(target[key], value)
-		end
-	end
-end
-
-local function withRetries<T>(label: string, callback: () -> T): (boolean, T?)
-	for attempt = 1, MAX_ATTEMPTS do
-		local ok, result = pcall(callback)
-		if ok then
-			return true, result
-		end
-		warn(`[PlayerData] {label} failed (attempt {attempt}): {result}`)
-		task.wait(2 ^ attempt)
-	end
-	return false, nil
-end
-
 local function keyFor(player: Player): string
 	return `player_{player.UserId}`
 end
 
-local function load(player: Player)
-	local data: { [string]: any }? = nil
-	if store then
-		local ok, result = withRetries(`load {player.UserId}`, function()
-			return (store :: DataStore):GetAsync(keyFor(player))
-		end)
-		if not ok then
-			player:Kick("We couldn't load your save. Please rejoin in a minute.")
-			return
-		end
-		data = result
-	end
-
-	local profile = data or deepCopy(GameConfig.DefaultProfile)
-	reconcile(profile, GameConfig.DefaultProfile)
-	profile.dataVersion = GameConfig.DataVersion
-
-	if player.Parent then
-		profiles[player] = profile
-		local signal = loadedSignals[player]
-		if signal then
-			signal:Fire()
-		end
+local function finishLoading(player: Player)
+	local signal = loadedSignals[player]
+	if signal then
+		signal:Fire()
 	end
 end
 
-local function save(player: Player)
-	local profile = profiles[player]
-	if not profile or not store then
+local function loadProfile(player: Player)
+	if not store then
+		local data = deepCopy(GameConfig.DefaultProfile) :: { [string]: any }
+		data.dataVersion = GameConfig.DataVersion
+		temporary[player] = data
+		finishLoading(player)
 		return
 	end
-	withRetries(`save {player.UserId}`, function()
-		(store :: DataStore):UpdateAsync(keyFor(player), function()
-			return profile
-		end)
+
+	local profile = store:StartSessionAsync(keyFor(player), {
+		Cancel = function()
+			return player.Parent ~= Players
+		end,
+	}) :: Profile?
+
+	if not profile then
+		-- Another server held the session and wouldn't let go, or the DataStore is down.
+		player:Kick("We couldn't load your save. Please rejoin in a minute.")
+		return
+	end
+
+	profile:AddUserId(player.UserId)
+	profile:Reconcile()
+	Migrations.run(profile.Data, GameConfig.DataVersion)
+
+	profile.OnSessionEnd:Connect(function()
+		profiles[player] = nil
+		player:Kick("Your save was opened on another server. Please rejoin.")
 	end)
+
+	if player.Parent == Players then
+		profiles[player] = profile
+		finishLoading(player)
+	else
+		-- Left while loading.
+		profile:EndSession()
+	end
 end
 
--- Returns the live profile table, or nil if it has not loaded yet.
+-- Returns the live profile data table, or nil if it has not loaded yet. Changes to it are saved.
 function PlayerDataService.get(player: Player): { [string]: any }?
-	return profiles[player]
+	local profile = profiles[player]
+	if profile then
+		return profile.Data
+	end
+	return temporary[player]
 end
 
 -- Yields until the player's profile has loaded. Returns nil if they leave first.
 function PlayerDataService.waitFor(player: Player): { [string]: any }?
-	if profiles[player] then
-		return profiles[player]
+	local data = PlayerDataService.get(player)
+	if data then
+		return data
 	end
 	local signal = loadedSignals[player]
 	if not signal then
 		return nil
 	end
 	signal.Event:Wait()
-	return profiles[player]
+	return PlayerDataService.get(player)
 end
 
 function PlayerDataService:Init()
-	-- DataStores only work in Studio when "Enable Studio Access to API Services" is on.
-	local ok, result = pcall(DataStoreService.GetDataStore, DataStoreService, GameConfig.DataStoreName)
+	local packages = ServerScriptService:FindFirstChild("ServerPackages")
+	local module = packages and packages:FindFirstChild("ProfileStore")
+	if not module then
+		warn("[PlayerData] ProfileStore is not installed (run `wally install`); using temporary profiles")
+		return
+	end
+	local ok, result = pcall(function()
+		local ProfileStore = (require :: any)(module)
+		return ProfileStore.New(GameConfig.DataStoreName, GameConfig.DefaultProfile)
+	end)
 	if ok then
 		store = result
 	else
-		warn("[PlayerData] DataStores unavailable, using temporary profiles:", result)
+		warn("[PlayerData] ProfileStore failed to start, using temporary profiles:", result)
 	end
 end
 
 function PlayerDataService:Start()
 	local function onPlayerAdded(player: Player)
 		loadedSignals[player] = Instance.new("BindableEvent")
-		load(player)
+		loadProfile(player)
 	end
 
 	Players.PlayerAdded:Connect(onPlayerAdded)
@@ -141,39 +154,17 @@ function PlayerDataService:Start()
 	end
 
 	Players.PlayerRemoving:Connect(function(player)
-		save(player)
+		local profile = profiles[player]
 		profiles[player] = nil
+		temporary[player] = nil
+		if profile then
+			profile:EndSession()
+		end
 		local signal = loadedSignals[player]
 		loadedSignals[player] = nil
 		if signal then
 			signal:Fire()
 			signal:Destroy()
-		end
-	end)
-
-	task.spawn(function()
-		while true do
-			task.wait(GameConfig.AutosaveSeconds)
-			for player in profiles do
-				task.spawn(save, player)
-			end
-		end
-	end)
-
-	game:BindToClose(function()
-		if RunService:IsStudio() and not store then
-			return
-		end
-		local pending = 0
-		for player in profiles do
-			pending += 1
-			task.spawn(function()
-				save(player)
-				pending -= 1
-			end)
-		end
-		while pending > 0 do
-			task.wait()
 		end
 	end)
 end

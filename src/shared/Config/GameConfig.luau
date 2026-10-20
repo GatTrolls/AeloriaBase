@@ -5,7 +5,8 @@
 local GameConfig = {
 	-- Bump when the saved data shape changes, and add a migration in PlayerDataService.
 	DataVersion = 1,
-	DataStoreName = "PlayerData_v1",
+	-- ProfileStore's DataStore. Saves made before session locking used "PlayerData_v1".
+	DataStoreName = "Profiles_v1",
 	AutosaveSeconds = 120,
 
 	Party = {
