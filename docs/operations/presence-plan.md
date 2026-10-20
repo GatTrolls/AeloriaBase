@@ -7,8 +7,8 @@ Accounts are created by the project owner; nothing is posted publicly until the 
 
 | Item | Free option | Notes |
 | --- | --- | --- |
-| Name check | Roblox search, USPTO and WIPO trademark search | Confirm "Aeloria" is not already a game or mark in use |
-| One handle everywhere | e.g. `PlayAeloria` | Reserve on Roblox, X, TikTok, YouTube, Discord vanity later |
+| Name check | Roblox search, USPTO and WIPO trademark search | Confirm "Farborn" is not already a game or mark in use |
+| One handle everywhere | e.g. `PlayFarborn` | Reserve on Roblox, X, TikTok, YouTube, Discord vanity later |
 | Project email | A dedicated free Gmail or Proton address | Used for every account below, never a personal email |
 | Logo and key art | Placeholder wordmark now, artist-made logo at M3 | Needed for icon, thumbnails, socials, site |
 | Roblox group | Owns the experience, assets and dev products | Creating a group costs 100 Robux. Free path: start under a personal account and transfer later |

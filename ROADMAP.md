@@ -1,6 +1,6 @@
 # Roadmap
 
-Aeloria is built by a very small team with no budget, so the plan is milestone-based, not
+Farborn is built by a very small team with no budget, so the plan is milestone-based, not
 date-based. Each milestone ends with something people can play or look at. Live tracking
 happens on the GitHub Project board (see docs/operations/presence-plan.md).
 
@@ -8,6 +8,8 @@ happens on the GitHub Project board (see docs/operations/presence-plan.md).
 
 - [x] Rojo project, toolchain, CI, issue and PR templates
 - [x] Player data service (starter) and gacha core with unit tests
+- [x] Elemental reaction engine and damage model with unit tests
+- [x] Systems and game documentation, credits
 - [ ] Art style guide v1 (cel shading on Roblox, outline method, palette per region)
 - [ ] Story bible v3 locked for the 1.0 scope (kid/teen audience)
 - [ ] Game design document v1: combat, party, elements, progression, economy

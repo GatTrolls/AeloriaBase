@@ -1,4 +1,4 @@
-# Toolchain pinned for everyone working on Aeloria.
+# Toolchain pinned for everyone working on Farborn.
 # Install Rokit (https://github.com/rojo-rbx/rokit), then run `rokit install` in this folder.
 [tools]
 rojo = "rojo-rbx/rojo@7.7.1"
