@@ -2,7 +2,7 @@
 --[[
 	EnemyService
 
-	Spawns enemies at the arena's "EnemySpawn" markers and runs them. Decisions come from
+	Spawns enemies at every "EnemySpawn" marker in the place and runs them. Decisions come from
 	Shared.Combat.EnemyBrain; this service turns them into movement, telegraphs and strikes, and
 	keeps everything else an enemy carries: HP, elemental state, damage over time and effects.
 
@@ -731,9 +731,11 @@ function EnemyService:Init()
 end
 
 function EnemyService:Start()
-	local arena = ArenaService.getArena()
+	-- Make sure the arena (and its markers) exists, then spawn at every marker in the place,
+	-- including any level blockouts built in Studio.
+	ArenaService.getArena()
 	for _, marker in CollectionService:GetTagged("EnemySpawn") do
-		if marker:IsA("BasePart") and marker:IsDescendantOf(arena) then
+		if marker:IsA("BasePart") and marker:IsDescendantOf(Workspace) then
 			local position = marker.Position
 			local defId = marker:GetAttribute("Enemy")
 			local def = Enemies[if type(defId) == "string" then defId else "grunt_melee"]
