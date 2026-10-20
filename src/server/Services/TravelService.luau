@@ -16,10 +16,11 @@
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 
 local TravelService = {}
-
-local COOLDOWN_SECONDS = 2
 
 local lastTravel: { [Player]: number } = {}
 
@@ -67,7 +68,7 @@ local function connectPad(pad: Instance)
 			return
 		end
 		local now = os.clock()
-		if now - (lastTravel[player] or 0) < COOLDOWN_SECONDS then
+		if now - (lastTravel[player] or 0) < GameConfig.Travel.PadCooldownSeconds then
 			return
 		end
 		local destination = pad:GetAttribute("Destination")
