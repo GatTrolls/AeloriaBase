@@ -27,6 +27,8 @@ local Net = require(Shared.Net)
 local Party = require(Shared.Combat.Party)
 local RateLimit = require(Shared.RateLimit)
 
+local PlayerDataService = require(script.Parent.PlayerDataService)
+
 export type Record = {
 	party: Party.State,
 	abilities: { [string]: Ability.State },
@@ -351,10 +353,68 @@ local function onCharacterAdded(player: Player, character: Model)
 	PartyService.pushState(player)
 end
 
+local function owned(profile: { [string]: any }, heroId: string): boolean
+	if table.find(GameConfig.Party.StarterParty, heroId) then
+		return true
+	end
+	return profile.roster ~= nil and profile.roster[heroId] ~= nil
+end
+
+-- Rebuilds the live party around a new line-up. Heroes who stay keep their cooldowns and energy;
+-- everyone comes back standing, so a line-up change is also a free heal and is refused mid-fight.
+local function rebuild(player: Player, record: Record, heroIds: { string })
+	local abilities = {}
+	for _, heroId in heroIds do
+		abilities[heroId] = record.abilities[heroId] or Ability.new()
+	end
+	record.party = Party.new(heroIds, function(heroId)
+		return Heroes[heroId].stats.maxHp
+	end)
+	record.abilities = abilities
+	applyToCharacter(player, record)
+	PartyService.pushState(player)
+end
+
+local function onEdit(player: Player, heroIds: unknown): { [string]: any }
+	local record = records[player]
+	if not record or type(heroIds) ~= "table" then
+		return { ok = false, error = "bad_request" }
+	end
+	local list = heroIds :: { any }
+	if #list < 1 or #list > GameConfig.Party.MaxMembers then
+		return { ok = false, error = "bad_size" }
+	end
+	local profile = PlayerDataService.get(player)
+	if not profile then
+		return { ok = false, error = "not_loaded" }
+	end
+	local clean: { string } = {}
+	local seen: { [string]: boolean } = {}
+	for _, heroId in list do
+		if type(heroId) ~= "string" or not Heroes[heroId] or seen[heroId] then
+			return { ok = false, error = "bad_hero" }
+		end
+		if not owned(profile, heroId) then
+			return { ok = false, error = "not_owned" }
+		end
+		seen[heroId] = true
+		table.insert(clean, heroId)
+	end
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health <= 0 then
+		return { ok = false, error = "down" }
+	end
+	profile.party = clean
+	PlayerDataService.markChanged(player)
+	rebuild(player, record, clean)
+	return { ok = true }
+end
+
 function PartyService:Init()
 	stateRemote = Net.event(Net.Names.PartyState)
 	feedbackRemote = Net.event(Net.Names.CombatFeedback)
 	Net.event(Net.Names.PartySwap).OnServerEvent:Connect(onSwap)
+	Net.func(Net.Names.PartyEdit).OnServerInvoke = onEdit
 end
 
 function PartyService:Start()
@@ -376,6 +436,26 @@ function PartyService:Start()
 		if player.Character then
 			task.spawn(onCharacterAdded, player, player.Character)
 		end
+		-- The saved line-up replaces the free team once the profile is in.
+		task.spawn(function()
+			local profile = PlayerDataService.waitFor(player)
+			local record = records[player]
+			local saved = profile and profile.party
+			if
+				not record
+				or type(saved) ~= "table"
+				or #saved == 0
+				or #saved > GameConfig.Party.MaxMembers
+			then
+				return
+			end
+			for _, heroId in saved do
+				if type(heroId) ~= "string" or not Heroes[heroId] or not owned(profile :: any, heroId) then
+					return
+				end
+			end
+			rebuild(player, record, saved)
+		end)
 	end
 
 	Players.PlayerAdded:Connect(onPlayerAdded)

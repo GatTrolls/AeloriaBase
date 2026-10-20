@@ -26,6 +26,7 @@ Net.Names = table.freeze({
 	MoveState = "MoveState", -- RemoteEvent: server -> client stamina and movement results
 	PartySwap = "PartySwap", -- RemoteEvent: client -> server (slot)
 	PartyState = "PartyState", -- RemoteEvent: server -> client party snapshot
+	PartyEdit = "PartyEdit", -- RemoteFunction: ({ heroId }) -> result, saves the party order
 	GetProfile = "GetProfile", -- RemoteFunction: () -> the player's profile snapshot (waits for the load)
 	ExchangeStars = "ExchangeStars", -- RemoteFunction: (currencyId, count) -> result
 	StarPick = "StarPick", -- RemoteFunction: (bannerId, itemId) -> result
