@@ -144,31 +144,25 @@ function Notebook.build(ctx: any)
 	root.Active = true
 	local sky = buildSky(root)
 
-	-- The book.
-	local book = Kit.panel({
-		style = "paper",
+	-- The menu surface: the whole screen, dark glass over the starfield, with a hairline frame.
+	local book = Kit.frame({
 		parent = root,
 		name = "Book",
-		size = UDim2.fromScale(0.95, 0.9),
+		size = UDim2.new(1, -24, 1, -24),
 		position = UDim2.fromScale(0.5, 0.5),
 		anchor = Vector2.new(0.5, 0.5),
-		radius = 20,
-		strokeThickness = 3,
+		color = Color.night,
+		transparency = 0.38,
+		radius = 16,
 	})
-	local constraint = Instance.new("UISizeConstraint")
-	constraint.MaxSize = Vector2.new(1160, 600)
-	constraint.MinSize = Vector2.new(640, 330)
-	constraint.Parent = book
-
-	-- Spine shadow down the page gutter.
+	Kit.stroke(book, Color.inkLine, 1.5, 0.35)
 	local gutter = Kit.frame({
 		parent = book,
-		size = UDim2.new(0, 6, 1, -28),
-		position = UDim2.fromOffset(142, 14),
-		color = Color.paperShade,
-		radius = 3,
+		size = UDim2.new(0, 1, 1, -28),
+		position = UDim2.fromOffset(86, 14),
+		color = Color.inkLine,
+		transparency = 0.6,
 	})
-	gutter.BackgroundTransparency = 0.4
 
 	-- Index tabs sit on the left edge, half outside the page like real notebook tabs.
 	local tabItems = {}
@@ -179,8 +173,8 @@ function Notebook.build(ctx: any)
 	local current = ""
 	local contentHost = Kit.frame({
 		parent = book,
-		size = UDim2.new(1, -176, 1, -86),
-		position = UDim2.fromOffset(160, 70),
+		size = UDim2.new(1, -112, 1, -86),
+		position = UDim2.fromOffset(100, 70),
 		name = "Content",
 		clip = true,
 	})
@@ -217,10 +211,11 @@ function Notebook.build(ctx: any)
 		parent = book,
 		items = tabItems,
 		vertical = true,
-		size = UDim2.new(0, 132, 1, -40),
-		position = UDim2.fromOffset(-30, 20),
-		tabSize = 54,
-		gap = 10,
+		tabStyle = "rail",
+		size = UDim2.new(0, 66, 1, -40),
+		position = UDim2.fromOffset(10, 20),
+		tabSize = 58,
+		gap = 8,
 		onSelect = function(id: string)
 			show(id)
 		end,
@@ -273,21 +268,18 @@ function Notebook.build(ctx: any)
 		end,
 	})
 
-	-- Narrow screens (a tablet held in landscape) get icon-only tabs and smaller currency chips, which
-	-- gives the pages back about 90 virtual pixels.
 	local function applyLayout()
 		local scale = math.max(if ctx.scale then ctx.scale() else 1, 0.01)
-		local width = book.AbsoluteSize.X / scale
-		local compact = width < 900
-		local left = if compact then 76 else 160
-		tabs.frame.Size = UDim2.new(0, if compact then 60 else 132, 1, -40)
-		tabs.frame.Position = UDim2.fromOffset(if compact then -22 else -30, 20)
-		tabs.setCompact(compact)
+		local compact = book.AbsoluteSize.X / scale < 900
+		tabs.frame.Size = UDim2.new(0, 66, 1, -40)
+		tabs.frame.Position = UDim2.fromOffset(10, 20)
+		tabs.setCompact(true)
+		local left = 100
 		contentHost.Position = UDim2.fromOffset(left, 70)
-		contentHost.Size = UDim2.new(1, -(left + 16), 1, -86)
+		contentHost.Size = UDim2.new(1, -(left + 14), 1, -86)
 		bar.Position = UDim2.fromOffset(left, 14)
-		bar.Size = UDim2.new(1, -(left + 16), 0, 40)
-		gutter.Position = UDim2.fromOffset(left - 18, 14)
+		bar.Size = UDim2.new(1, -(left + 14), 0, 40)
+		gutter.Position = UDim2.fromOffset(left - 12, 14)
 		for _, chip in chipRefs do
 			chip.frame.Size = UDim2.fromOffset(if compact then 86 else 112, if compact then 30 else 32)
 		end

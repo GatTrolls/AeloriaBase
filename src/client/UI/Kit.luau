@@ -249,7 +249,7 @@ function Kit.panel(props: Props): Frame
 	local radius = props.radius or Theme.Radius.medium
 	if style == "paper" then
 		frame.BackgroundColor3 = Color.paper
-		Kit.gradient(frame, Color3.fromRGB(255, 252, 244), Color3.fromRGB(238, 228, 204), 90)
+		Kit.gradient(frame, Color3.fromRGB(70, 88, 140), Color3.fromRGB(34, 44, 82), 90)
 		Kit.stroke(frame, Color.textDark, props.strokeThickness or 2.5)
 	elseif style == "ink" then
 		frame.BackgroundColor3 = Color.ink
@@ -750,12 +750,39 @@ function Kit.tabs(props: Props): Tabs
 		if vertical then Enum.FillDirection.Vertical else Enum.FillDirection.Horizontal,
 		props.gap or 8
 	)
-	local buttons: { [string]: { button: TextButton, label: TextLabel, badge: Frame, scale: UIScale } } = {}
+	local buttons: {
+		[string]: {
+			button: TextButton,
+			label: TextLabel,
+			badge: Frame,
+			scale: UIScale,
+			mark: Frame,
+			icon: ImageLabel?,
+		},
+	} =
+		{}
 	local current = ""
+	-- "chunky" (the old brass tabs), "rail" (vertical icon rail) or "line" (underlined text tabs).
+	local tabStyle: string = props.tabStyle or "chunky"
 
 	local function paint(id: string, selected: boolean)
 		local entry = buttons[id]
 		if not entry then
+			return
+		end
+		if tabStyle ~= "chunky" then
+			-- Reference-style tabs: no boxes, a gold mark and tint on the active one.
+			Kit.tween(
+				entry.button,
+				Theme.Tween.fast,
+				{ BackgroundTransparency = if selected then 0.78 else 1 }
+			)
+			entry.button.BackgroundColor3 = Color.brassLight
+			entry.label.TextColor3 = if selected then Color.brassLight else Color.textMuted
+			if entry.icon then
+				entry.icon.ImageColor3 = if selected then Color.brassLight else Color.textMuted
+			end
+			Kit.tween(entry.mark, Theme.Tween.fast, { BackgroundTransparency = if selected then 0 else 1 })
 			return
 		end
 		local fill = if selected then Color.paper else Color.brassDark
@@ -787,11 +814,16 @@ function Kit.tabs(props: Props): Tabs
 		button.BorderSizePixel = 0
 		button.LayoutOrder = order
 		button.BackgroundColor3 = Color.brassDark
+		if tabStyle ~= "chunky" then
+			button.BackgroundTransparency = 1
+		end
 		button.Size = if vertical
 			then UDim2.new(1, 0, 0, props.tabSize or 52)
 			else UDim2.new(0, props.tabSize or 120, 1, 0)
-		Kit.corner(button, 12)
-		Kit.stroke(button, Color.textDark, 2)
+		Kit.corner(button, if tabStyle == "chunky" then 12 else 8)
+		if tabStyle == "chunky" then
+			Kit.stroke(button, Color.textDark, 2)
+		end
 		local scale = Instance.new("UIScale")
 		scale.Scale = 0.96
 		scale.Parent = button
@@ -835,11 +867,35 @@ function Kit.tabs(props: Props): Tabs
 			name = "Badge",
 		})
 		Kit.stroke(badge, Color.paper, 1.5)
+		local mark = Kit.frame({
+			parent = button,
+			size = if vertical then UDim2.new(0, 3, 0.7, 0) else UDim2.new(0.8, 0, 0, 3),
+			position = if vertical then UDim2.fromScale(0, 0.5) else UDim2.fromScale(0.5, 1),
+			anchor = if vertical then Vector2.new(0, 0.5) else Vector2.new(0.5, 1),
+			color = Color.brassLight,
+			radius = -1,
+			name = "Mark",
+		})
+		mark.BackgroundTransparency = 1
+		local iconImage = content:FindFirstChildWhichIsA("ImageLabel")
 		button.Activated:Connect(function()
 			choose(item.id)
 		end)
 		button.Parent = frame
-		buttons[item.id] = { button = button, label = label, badge = badge, scale = scale }
+		buttons[item.id] = {
+			button = button,
+			label = label,
+			badge = badge,
+			scale = scale,
+			mark = mark,
+			icon = iconImage,
+		}
+		if tabStyle ~= "chunky" then
+			label.TextColor3 = Color.textMuted
+			if iconImage then
+				iconImage.ImageColor3 = Color.textMuted
+			end
+		end
 	end
 
 	return {

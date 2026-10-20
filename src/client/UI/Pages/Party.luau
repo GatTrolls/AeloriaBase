@@ -555,6 +555,7 @@ function Party.build(parent: Frame, ctx: any)
 	local tabs = Kit.tabs({
 		parent = right,
 		vertical = false,
+		tabStyle = "line",
 		items = {
 			{ id = "stats", text = Content.text("party.stats") },
 			{ id = "talents", text = Content.text("party.talents") },

@@ -30,10 +30,10 @@ Theme.Color = {
 	ink = Color3.fromRGB(27, 34, 58),
 	inkSoft = Color3.fromRGB(42, 53, 88),
 	inkLine = Color3.fromRGB(78, 94, 140),
-	-- Notebook paper.
-	paper = Color3.fromRGB(248, 241, 225),
-	paperShade = Color3.fromRGB(234, 224, 200),
-	paperLine = Color3.fromRGB(205, 192, 164),
+	-- Notebook pages (dark glass, like the reference menus).
+	paper = Color3.fromRGB(22, 30, 56),
+	paperShade = Color3.fromRGB(34, 46, 84),
+	paperLine = Color3.fromRGB(86, 104, 154),
 	-- Brass: buttons and trim.
 	brass = Color3.fromRGB(205, 158, 78),
 	brassLight = Color3.fromRGB(240, 205, 128),
@@ -51,8 +51,8 @@ Theme.Color = {
 	-- Text.
 	textLight = Color3.fromRGB(247, 241, 228),
 	textMuted = Color3.fromRGB(168, 178, 206),
-	textDark = Color3.fromRGB(52, 44, 62),
-	textFaint = Color3.fromRGB(128, 116, 112),
+	textDark = Color3.fromRGB(236, 241, 252),
+	textFaint = Color3.fromRGB(150, 165, 202),
 	black = Color3.fromRGB(10, 12, 22),
 }
 

@@ -246,7 +246,7 @@ function ItemCard.new(options: Options): TextButton
 		name = "Name",
 		z = 2,
 	})
-	Kit.gradient(strip, Color3.fromRGB(255, 252, 244), Color3.fromRGB(232, 222, 196), 90)
+	Kit.gradient(strip, Color3.fromRGB(70, 88, 140), Color3.fromRGB(34, 44, 82), 90)
 	local widthPixels = size.X.Offset
 	Kit.text({
 		parent = strip,

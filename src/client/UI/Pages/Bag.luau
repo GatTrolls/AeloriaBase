@@ -49,6 +49,7 @@ function Bag.build(parent: Frame, ctx: any)
 	local tabs = Kit.tabs({
 		parent = root,
 		vertical = false,
+		tabStyle = "line",
 		items = {
 			{ id = "weapons", text = Content.text("bag.weapons") },
 			{ id = "materials", text = Content.text("bag.materials") },
