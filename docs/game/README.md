@@ -40,7 +40,7 @@ takes you from nation to nation to meet each god and piece together who you are.
 | --- | --- |
 | Main character | You choose to play as a boy or a girl |
 | Exploration | Climb, glide and swim across open regions with puzzles, chests and hidden guardians |
-| Combat | Real-time action: attack chains, an elemental skill and a big burst per hero |
+| Combat | Real-time action: attack chains, a Technique and a big Finale per hero, dodges and parries |
 | Party | Up to four heroes, swapped instantly mid-fight |
 | Elements | Seven elements that combine into reactions (see [Elemental reactions](../systems/elemental-reactions.md)) |
 | Heroes | A growing cast, unlocked through the story and wishes |

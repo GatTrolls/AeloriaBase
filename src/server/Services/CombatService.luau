@@ -2,16 +2,20 @@
 --[[
 	CombatService
 
-	Confirms every attack, skill and burst on the server.
+	Confirms every attack, charged attack, plunge, Technique and Finale on the server, and runs
+	Relays when a rested hero swaps in.
 
 	  1. Type, rate and aliveness checks on the request.
-	  2. Timing through Shared.Combat.Ability (recovery, cooldown, energy) for the active hero.
-	  3. A hitbox query at the server's copy of positions: an arc in front for the chain, a
-	     circle for skills and bursts. The client only sends which way it is aiming.
-	  4. For each target: element application with internal cooldowns (Shared.Elements), the
-	     damage formula (Shared.Damage), reaction side effects, then poise and HP.
+	  2. Timing through Shared.Combat.Ability for the active hero (recovery, cooldown, energy).
+	  3. Hitboxes at the server's copy of positions: an arc in front for the chain, a circle for
+	     charged spins and plunges. The client only sends which way it is aiming.
+	  4. Each enemy hit goes through Combat/HitResolver (elements, reactions, damage, Composure).
+	     Techniques, Finales and Relays run their steps through Combat/AbilityRunner.
 	  5. One feedback message to every client: the action for others to animate, and the
-	     confirmed hits for damage numbers, reaction text and hit-stop.
+	     confirmed hits for damage numbers, reaction names and hit-stop.
+
+	It also decides which swaps may ignore the swap cooldown: a Cover (a swap right after a Slip)
+	and Pile-On (Relay swaps on a Rattled enemy, up to three in a row).
 ]]
 
 local Players = game:GetService("Players")
@@ -21,32 +25,33 @@ local Workspace = game:GetService("Workspace")
 local Shared = ReplicatedStorage.Shared
 local Ability = require(Shared.Combat.Ability)
 local CombatConfig = require(Shared.Config.CombatConfig)
-local Damage = require(Shared.Damage)
-local Elements = require(Shared.Elements)
 local Heroes = require(Shared.Config.Heroes)
 local Net = require(Shared.Net)
+local Party = require(Shared.Combat.Party)
 local RateLimit = require(Shared.RateLimit)
 
+local Combat = script.Parent.Parent.Combat
+local AbilityRunner = require(Combat.AbilityRunner)
+local ActionLog = require(Combat.ActionLog)
 local EnemyService = require(script.Parent.EnemyService)
+local HitResolver = require(Combat.HitResolver)
+local MovementService = require(script.Parent.MovementService)
 local PartyService = require(script.Parent.PartyService)
 
-type Action = "attack" | "skill" | "burst"
-
-type HitSpec = {
-	multiplier: number,
-	element: string?,
-	units: number,
-	poise: number,
-	heavy: boolean,
-}
+type Action = "attack" | "charged" | "plunge" | "technique" | "finale"
 
 local CombatService = {}
 
-local SWEEP_RADIUS = 9
+local ACTIONS: { [string]: boolean } = {
+	attack = true,
+	charged = true,
+	plunge = true,
+	technique = true,
+	finale = true,
+}
 
 local limiter = RateLimit.new(CombatConfig.RateLimits.CombatAction)
 local feedbackRemote: RemoteEvent
-local rng = Random.new()
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -68,73 +73,113 @@ local function flatUnit(v: Vector3, fallback: Vector3): Vector3
 	return if flat.Magnitude < 0.05 then Vector3.new(0, 0, -1) else flat.Unit
 end
 
-local function resolveHit(
+-- The element a basic, charged or plunge attack carries: an infusion first, then the hero's own
+-- element for Focus users, otherwise physical.
+local function basicElement(kit: Heroes.Kit, ability: Ability.State): string?
+	local infused = Ability.takeInfusion(ability)
+	if infused then
+		return infused
+	end
+	return if kit.chainIsElemental then kit.element else nil
+end
+
+-- A basic or charged attack, or a plunge. Returns the feedback payload, or nil if refused.
+local function basicAction(
 	player: Player,
 	kit: Heroes.Kit,
-	enemy: EnemyService.Enemy,
-	spec: HitSpec,
-	sourceKey: string,
+	ability: Ability.State,
+	action: Action,
+	root: BasePart,
+	forward: Vector3,
 	t: number
-)
-	local applied: Elements.ApplyResult? = nil
-	if spec.element and Elements.icdAllows(enemy.icd, sourceKey, t) then
-		applied = Elements.apply(enemy.elements, spec.element, spec.units, t)
+): { [string]: any }?
+	local tolerance = CombatConfig.Combat.TimingToleranceSeconds
+	local reach = CombatConfig.Combat.ReachToleranceStuds
+	local origin = root.Position
+	local log = ActionLog.get(player)
+
+	local hitDef: Heroes.Hit
+	local chainIndex: number? = nil
+	local targets: { EnemyService.Enemy }
+
+	if action == "attack" then
+		chainIndex = Ability.tryAttack(ability, kit, t, tolerance)
+		if not chainIndex then
+			return nil
+		end
+		hitDef = kit.chain[chainIndex :: number]
+		targets = EnemyService.query(origin, hitDef.range + reach, forward, hitDef.arc)
+	elseif action == "charged" then
+		if not Ability.tryCharged(ability, kit, t, tolerance) then
+			return nil
+		end
+		hitDef = kit.charged
+		targets = EnemyService.query(origin, hitDef.range + reach, forward, hitDef.arc)
+	else
+		-- Plunge: only after a real fall.
+		if MovementService.recentDrop(player, 1.5) < CombatConfig.Movement.PlungeMinHeight then
+			return nil
+		end
+		if not Ability.tryPlunge(ability, t, tolerance) then
+			return nil
+		end
+		local plunge = kit.plunge
+		hitDef = {
+			multiplier = plunge.multiplier,
+			range = plunge.radius,
+			arc = 360,
+			recovery = 0.35,
+			poise = plunge.poise,
+			heavy = true,
+		}
+		targets = EnemyService.query(origin, plunge.radius + reach)
 	end
 
-	local stats = kit.stats
-	local enemyStats = enemy.def.stats
-	local brittle = Elements.hasStatus(enemy.elements, "Brittle", t)
-	local hit = Damage.computeHit({
-		attack = stats.attack,
-		skillMultiplier = spec.multiplier,
-		critRate = stats.critRate,
-		critDamage = stats.critDamage,
-		attackerLevel = stats.level,
-		targetLevel = enemyStats.defenseLevel,
-		resistance = enemyStats.resistance,
-		defenseReduction = if brittle then CombatConfig.Combat.BrittleDefenseReduction else 0,
-		hitMultiplier = if applied then applied.hitMultiplier else 1,
-	}, function()
-		return rng:NextNumber()
-	end)
-
-	local bonus = 0
-	local reactionId: string? = nil
-	if applied and applied.reaction then
-		reactionId = applied.reaction.id
-		if applied.transformScale > 0 then
-			bonus = Damage.transformDamage(stats.level, applied.transformScale, enemyStats.resistance)
-		end
-		if applied.shieldElement then
-			PartyService.addShield(player)
-		end
-		local spread = applied.spreadElement
-		if spread then
-			for _, other in EnemyService.query(enemy.root.Position, SWEEP_RADIUS) do
-				if other ~= enemy then
-					Elements.apply(other.elements, spread, 1, t)
-					EnemyService.refreshAura(other)
-				end
-			end
-		end
+	log.lastAttackAt = t
+	local counter = t <= log.slipCounterUntil
+	if counter then
+		log.slipCounterUntil = -math.huge
 	end
 
-	local position = enemy.root.Position
-	EnemyService.applyHit(enemy, hit.amount + bonus, spec.poise)
-	EnemyService.refreshAura(enemy)
+	local element = basicElement(kit, ability)
+	local hits = {}
+	for _, enemy in targets do
+		table.insert(
+			hits,
+			HitResolver.resolve(player, kit, enemy, {
+				multiplier = hitDef.multiplier,
+				poise = hitDef.poise,
+				heavy = hitDef.heavy == true,
+				element = element,
+				basic = true,
+				composure = if counter then CombatConfig.Combat.Composure.SlipCounter else nil,
+				damageScale = if counter then CombatConfig.Defense.SlipCounterMultiplier else nil,
+			})
+		)
+	end
+	if #hits > 0 then
+		-- Landed hits trickle a little energy so a Finale is always reachable.
+		PartyService.addEnergy(player, 1)
+		PartyService.pushState(player)
+	end
 
 	return {
-		position = position,
-		amount = hit.amount,
-		bonus = bonus,
-		crit = hit.crit,
-		element = spec.element,
-		reaction = reactionId,
+		kind = "action",
+		attacker = player,
+		heroId = kit.id,
+		action = action,
+		index = chainIndex,
+		origin = origin,
+		forward = forward,
+		element = element,
+		heavy = hitDef.heavy == true,
+		counter = counter or nil,
+		hits = hits,
 	}
 end
 
 local function onAction(player: Player, action: unknown, aim: unknown)
-	if action ~= "attack" and action ~= "skill" and action ~= "burst" then
+	if type(action) ~= "string" or not ACTIONS[action] then
 		return
 	end
 	local t = now()
@@ -157,80 +202,72 @@ local function onAction(player: Player, action: unknown, aim: unknown)
 		root.CFrame.LookVector
 	)
 	local tolerance = CombatConfig.Combat.TimingToleranceSeconds
-	-- Positions on the server trail what the player saw by a few frames, so reach gets a little slack.
-	local reach = CombatConfig.Combat.ReachToleranceStuds
-	local origin = root.Position
 
-	local targets: { EnemyService.Enemy } = {}
-	local spec: HitSpec
-	local chainIndex: number? = nil
-	local areaCenter: Vector3? = nil
-
-	if action == "attack" then
-		chainIndex = Ability.tryAttack(ability, kit, t, tolerance)
-		if not chainIndex then
-			return
+	if action == "technique" then
+		if Ability.tryTechnique(ability, kit, t, tolerance) then
+			AbilityRunner.run(player, kit, "technique", root.Position, forward)
 		end
-		local chainHit = kit.chain[chainIndex]
-		targets = EnemyService.query(origin, chainHit.range + reach, forward, chainHit.arc)
-		spec = {
-			multiplier = chainHit.multiplier,
-			element = if kit.chainIsElemental then kit.element else nil,
-			units = chainHit.units or 1,
-			poise = chainHit.poise,
-			heavy = chainHit.heavy == true,
-		}
-	else
-		local area = if action == "skill" then kit.skill else kit.burst
-		local accepted = if action == "skill"
-			then Ability.trySkill(ability, kit, t, tolerance)
-			else Ability.tryBurst(ability, kit, t, tolerance)
-		if not accepted then
-			PartyService.pushState(player)
-			return
-		end
-		areaCenter = origin + forward * area.forward
-		targets = EnemyService.query(areaCenter :: Vector3, area.radius + reach)
-		spec = {
-			multiplier = area.multiplier,
-			element = kit.element,
-			units = area.units,
-			poise = area.poise,
-			heavy = true,
-		}
-	end
-
-	local sourceKey = `{player.UserId}:{kit.id}:{action}`
-	local hits = {}
-	for _, enemy in targets do
-		table.insert(hits, resolveHit(player, kit, enemy, spec, sourceKey, t))
-	end
-
-	if action == "skill" and #hits > 0 then
-		PartyService.addEnergy(
-			player,
-			math.min(kit.skill.maxEnergyPerCast, kit.skill.energyPerTarget * #hits)
-		)
-	elseif action == "attack" and #hits > 0 then
-		-- Normal attacks trickle a little energy so a burst is always reachable.
-		PartyService.addEnergy(player, 1)
-	end
-	if action ~= "attack" or #hits > 0 then
 		PartyService.pushState(player)
+		return
 	end
 
-	feedbackRemote:FireAllClients({
-		kind = "action",
-		attacker = player,
-		heroId = kit.id,
-		action = action,
-		index = chainIndex,
-		origin = origin,
-		forward = forward,
-		areaCenter = areaCenter,
-		heavy = spec.heavy,
-		hits = hits,
-	})
+	if action == "finale" then
+		if Ability.tryFinale(ability, kit, t, tolerance) then
+			EnemyService.halt(
+				root.Position,
+				CombatConfig.Combat.FinaleFreezeRadius,
+				CombatConfig.Combat.FinaleFreezeSeconds
+			)
+			AbilityRunner.run(player, kit, "finale", root.Position, forward)
+		end
+		PartyService.pushState(player)
+		return
+	end
+
+	local payload = basicAction(player, kit, ability, action :: Action, root, forward, t)
+	if payload then
+		feedbackRemote:FireAllClients(payload)
+	end
+end
+
+-- Cover: a swap right after a Slip. Pile-On: a Relay swap while an enemy nearby is Rattled.
+-- Both ignore the swap cooldown.
+local function swapPolicy(player: Player, slot: number, t: number): PartyService.SwapKind
+	if t <= ActionLog.get(player).coverUntil then
+		return "cover"
+	end
+	local record = PartyService.get(player)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if record and root and Party.relayReady(record.party, slot, t) then
+		for _, enemy in EnemyService.rattledNear(root.Position, CombatConfig.Combat.PileOnRange) do
+			if enemy.pileOns < CombatConfig.Combat.PileOnMax then
+				return "pileon"
+			end
+		end
+	end
+	return "swap"
+end
+
+local function onSwapped(player: Player, info: PartyService.SwapInfo)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return
+	end
+	if info.kind == "cover" then
+		ActionLog.get(player).coverUntil = -math.huge
+	elseif info.kind == "pileon" then
+		for _, enemy in EnemyService.rattledNear(root.Position, CombatConfig.Combat.PileOnRange) do
+			if enemy.pileOns < CombatConfig.Combat.PileOnMax then
+				enemy.pileOns += 1
+				break
+			end
+		end
+	end
+	if info.relay then
+		local kit = Heroes[info.toHeroId]
+		local forward = flatUnit(root.CFrame.LookVector, Vector3.zAxis)
+		AbilityRunner.run(player, kit, "relay", root.Position, forward, info.toHeroId)
+	end
 end
 
 function CombatService:Init()
@@ -239,6 +276,8 @@ function CombatService:Init()
 end
 
 function CombatService:Start()
+	PartyService.setSwapPolicy(swapPolicy)
+	PartyService.onSwapped(onSwapped)
 	Players.PlayerRemoving:Connect(function(player)
 		RateLimit.forget(limiter, player)
 	end)

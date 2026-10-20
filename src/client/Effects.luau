@@ -3,8 +3,9 @@
 	Effects
 
 	Client-only combat visuals built from parts and UI, so the slice needs no uploaded assets:
-	slashes, projectiles, area bursts, hit sparks, damage numbers, reaction labels, telegraph
-	shockwaves, procedural arm swings and hit-stop. Everything here is cosmetic and is cleaned up
+	slashes, projectiles, area bursts, streaks, gravity wells, falling stars, lasting zones,
+	lightning, hit sparks, damage and heal numbers, reaction labels, telegraph shockwaves,
+	procedural arm swings, hit-stop and the Slip slow-motion tint. Everything here is cosmetic and is cleaned up
 	automatically.
 ]]
 
@@ -184,12 +185,12 @@ function Effects.reaction(position: Vector3, reactionId: string)
 end
 
 -- A shockwave ring where an enemy strike landed.
-function Effects.shockwave(position: Vector3, radius: number)
+function Effects.shockwave(position: Vector3, radius: number, color: Color3?)
 	local ground = position - Vector3.new(0, 2.7, 0)
 	local ring = effectPart(
 		Vector3.new(0.25, 1, 1),
 		CFrame.new(ground) * CFrame.Angles(0, 0, math.rad(90)),
-		Color3.fromRGB(255, 90, 60),
+		color or Color3.fromRGB(255, 90, 60),
 		0.3
 	)
 	ring.Shape = Enum.PartType.Cylinder
@@ -314,6 +315,105 @@ function Effects.flash(character: Model, color: Color3, seconds: number)
 	TweenService:Create(highlight, TweenInfo.new(seconds), { FillTransparency = 1, OutlineTransparency = 1 })
 		:Play()
 	Debris:AddItem(highlight, seconds + 0.05)
+end
+
+-- A bright streak between two points: dashes and lines.
+function Effects.streak(from: Vector3, to: Vector3, color: Color3, width: number?)
+	local length = (to - from).Magnitude
+	if length < 0.1 then
+		return
+	end
+	local thickness = width or 1
+	local beam = effectPart(
+		Vector3.new(thickness, thickness * 0.4, length),
+		CFrame.lookAt((from + to) / 2, to),
+		color,
+		0.2
+	)
+	fadeOut(beam, 0.3, { Size = Vector3.new(0.1, 0.05, length) })
+end
+
+-- A ring that shrinks into its centre: pulls and gravity wells.
+function Effects.implode(center: Vector3, radius: number, color: Color3)
+	local ground = center - Vector3.new(0, 2.6, 0)
+	local ring = effectPart(
+		Vector3.new(0.2, radius * 2, radius * 2),
+		CFrame.new(ground) * CFrame.Angles(0, 0, math.rad(90)),
+		color,
+		0.35
+	)
+	ring.Shape = Enum.PartType.Cylinder
+	fadeOut(ring, 0.35, { Size = Vector3.new(0.2, 0.5, 0.5) })
+	local core = effectPart(Vector3.new(1, 1, 1), CFrame.new(center), color, 0.1)
+	core.Shape = Enum.PartType.Ball
+	fadeOut(core, 0.45, { Size = Vector3.new(3, 3, 3) })
+end
+
+-- A star that falls from above and bursts where it lands.
+function Effects.fallingStar(point: Vector3, radius: number, color: Color3)
+	local star = effectPart(Vector3.new(1.2, 1.2, 1.2), CFrame.new(point + Vector3.new(4, 26, -2)), color)
+	star.Shape = Enum.PartType.Ball
+	local fall =
+		TweenService:Create(star, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+			CFrame = CFrame.new(point),
+		})
+	fall:Play()
+	fall.Completed:Connect(function()
+		star:Destroy()
+		Effects.area(point, radius, color, false)
+	end)
+	Debris:AddItem(star, 1)
+end
+
+-- A lasting disc on the ground: healing pools, molten glass, frozen constellations.
+function Effects.zone(center: Vector3, radius: number, seconds: number, color: Color3)
+	local ground = center - Vector3.new(0, 2.65, 0)
+	local disc = effectPart(
+		Vector3.new(0.15, radius * 2, radius * 2),
+		CFrame.new(ground) * CFrame.Angles(0, 0, math.rad(90)),
+		color,
+		0.6
+	)
+	disc.Shape = Enum.PartType.Cylinder
+	disc.Material = Enum.Material.ForceField
+	task.delay(math.max(0, seconds - 0.4), function()
+		fadeOut(disc, 0.4)
+	end)
+	Debris:AddItem(disc, seconds + 0.5)
+end
+
+function Effects.healNumber(position: Vector3, amount: number)
+	Effects.popup(position, "+" .. tostring(math.floor(amount)), Color3.fromRGB(120, 235, 140), 1)
+end
+
+-- A jagged bolt between two points: Conduct.
+function Effects.lightning(from: Vector3, to: Vector3, color: Color3)
+	local points = { from }
+	local segments = 4
+	for index = 1, segments - 1 do
+		local t = index / segments
+		local jitter = Vector3.new(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 2
+		table.insert(points, from:Lerp(to, t) + jitter)
+	end
+	table.insert(points, to)
+	for index = 1, #points - 1 do
+		Effects.streak(points[index], points[index + 1], color, 0.35)
+	end
+end
+
+-- A short slow-motion tint for the player who landed a Slip.
+function Effects.timeSlow(seconds: number)
+	local lighting = game:GetService("Lighting")
+	local tint = Instance.new("ColorCorrectionEffect")
+	tint.Name = "SlipTint"
+	tint.Saturation = -0.6
+	tint.TintColor = Color3.fromRGB(215, 230, 255)
+	tint.Parent = lighting
+	TweenService:Create(tint, TweenInfo.new(seconds, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Saturation = 0,
+		TintColor = Color3.new(1, 1, 1),
+	}):Play()
+	Debris:AddItem(tint, seconds + 0.1)
 end
 
 return Effects

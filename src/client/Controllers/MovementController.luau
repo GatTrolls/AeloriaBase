@@ -2,13 +2,16 @@
 --[[
 	MovementController
 
-	Sprint, dodge, wall climb and glide on the player's own character. Movement plays instantly
-	for feel; every stamina cost is asked for from MovementService, which can refuse or end it.
+	Sprint, dodge, wall climb, glide, Technique dashes and plunges on the player's own character.
+	Movement plays instantly for feel; every Grip cost and every dodge is asked for from
+	MovementService, which can refuse or end it.
 
-	  Dodge / sprint: tap Left Shift, B on a gamepad, or the dodge button to dodge; hold it to
-	  sprint. Dodging while standing still steps backwards.
-	  Climb: run into a wall. Jump leaps upward (costs stamina); dodge lets go.
+	  Dodge / sprint: tap Left Shift, right click, B on a gamepad, or the dodge button to dodge;
+	  hold it to sprint. Three dodges in a row, then a short cooldown. Dodging while standing
+	  still steps backwards.
+	  Climb: run into a wall. Jump leaps upward (costs Grip); dodge lets go.
 	  Glide: jump again while falling from high enough. Jump again or land to stop.
+	  Plunge: attack while gliding or falling (CombatController asks for it).
 ]]
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -20,13 +23,14 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
+local Defense = require(ReplicatedStorage.Shared.Combat.Defense)
 local Net = require(ReplicatedStorage.Shared.Net)
 
 local Movement = CombatConfig.Movement
 local StaminaConfig = CombatConfig.Stamina
 local player = Players.LocalPlayer
 
-type Mode = "ground" | "climb" | "glide"
+type Mode = "ground" | "climb" | "glide" | "plunge"
 
 local MovementController = {}
 
@@ -36,8 +40,10 @@ local mode: Mode = "ground"
 local sprinting = false
 local dodgeHeld = false
 local dodgeHeldSince = 0
-local lastDodgeAt = -math.huge
+local dodgeState = Defense.newDodge()
+local dodgeCharges = CombatConfig.Defense.DodgeCharges
 local dodgeUntil = 0
+local plungeLanded: (() -> ())? = nil
 local pushingWallSince: number? = nil
 local leapUntil = 0
 local velocity: LinearVelocity? = nil
@@ -75,6 +81,10 @@ end
 
 function MovementController.isDodging(): boolean
 	return os.clock() < dodgeUntil
+end
+
+function MovementController.getDodgeCharges(): number
+	return dodgeCharges
 end
 
 -- One LinearVelocity and AlignOrientation per character, switched on only while a move needs them.
@@ -217,10 +227,10 @@ local function dodge()
 		return
 	end
 	local t = os.clock()
-	if t - lastDodgeAt < Movement.DodgeCooldownSeconds or stamina < StaminaConfig.DodgeCost then
+	if not Defense.tryDodge(dodgeState, Workspace:GetServerTimeNow()) then
 		return
 	end
-	lastDodgeAt = t
+	dodgeCharges = Defense.chargesLeft(dodgeState, Workspace:GetServerTimeNow())
 	dodgeUntil = t + Movement.DodgeSeconds
 	ensureMovers(root)
 
@@ -249,12 +259,11 @@ local function dodge()
 		flash.FillTransparency = 0.4
 		flash.OutlineTransparency = 1
 		flash.Parent = character
-		task.delay(Movement.DodgeInvulnerableSeconds, function()
+		task.delay(CombatConfig.Defense.DodgeInvulnerableSeconds, function()
 			flash:Destroy()
 		end)
 	end
 
-	stamina = math.max(0, stamina - StaminaConfig.DodgeCost)
 	intentRemote:FireServer("dodge")
 	notify()
 	task.delay(Movement.DodgeSeconds, function()
@@ -266,6 +275,88 @@ local function dodge()
 			velocity.Enabled = false
 		end
 	end)
+end
+
+-- A Technique dash: moves the character forward fast, the way a dodge does.
+function MovementController.dash(direction: Vector3, length: number, seconds: number)
+	local _, humanoid, root = parts()
+	if not humanoid or not root or mode ~= "ground" then
+		return
+	end
+	ensureMovers(root)
+	local flat = (direction * Vector3.new(1, 0, 1))
+	if flat.Magnitude < 0.01 then
+		return
+	end
+	flat = flat.Unit
+	root.CFrame = CFrame.lookAt(root.Position, root.Position + flat)
+	local lv = velocity :: LinearVelocity
+	lv.VelocityConstraintMode = Enum.VelocityConstraintMode.Plane
+	lv.PrimaryTangentAxis = Vector3.xAxis
+	lv.SecondaryTangentAxis = Vector3.zAxis
+	lv.PlaneVelocity = Vector2.new(flat.X, flat.Z) * (length / math.max(seconds, 0.05))
+	lv.Enabled = true
+	dodgeUntil = os.clock() + seconds
+	task.delay(seconds, function()
+		if
+			mode == "ground"
+			and velocity
+			and velocity.VelocityConstraintMode == Enum.VelocityConstraintMode.Plane
+		then
+			velocity.Enabled = false
+		end
+	end)
+end
+
+local function heightAboveGround(root: BasePart): number
+	rayParams.FilterDescendantsInstances = { player.Character :: Model }
+	local hit = Workspace:Raycast(root.Position, Vector3.new(0, -200, 0), rayParams)
+	return if hit then root.Position.Y - hit.Position.Y else math.huge
+end
+
+-- Whether an attack now would be a plunge: gliding, or falling from high enough.
+function MovementController.canPlunge(): boolean
+	local _, humanoid, root = parts()
+	if not humanoid or not root or mode == "climb" or mode == "plunge" then
+		return false
+	end
+	return humanoid.FloorMaterial == Enum.Material.Air and heightAboveGround(root) >= Movement.PlungeMinHeight
+end
+
+-- Drops straight down fast; calls onLand when the character touches the ground.
+function MovementController.plunge(onLand: () -> ())
+	local _, humanoid, root = parts()
+	if not humanoid or not root then
+		return
+	end
+	if mode == "glide" then
+		mode = "ground"
+		stopMovers()
+		if glider then
+			glider:Destroy()
+			glider = nil
+		end
+		intentRemote:FireServer("glide", false)
+	end
+	ensureMovers(root)
+	mode = "plunge"
+	plungeLanded = onLand
+	setVelocityVector(Vector3.new(0, -Movement.PlungeSpeed, 0))
+	notify()
+end
+
+local function plungeStep(humanoid: Humanoid)
+	if humanoid.FloorMaterial == Enum.Material.Air then
+		return
+	end
+	mode = "ground"
+	stopMovers()
+	local landed = plungeLanded
+	plungeLanded = nil
+	notify()
+	if landed then
+		landed()
+	end
 end
 
 -- Holding dodge longer than SprintHoldSeconds switches to sprinting.
@@ -394,12 +485,6 @@ local function glideStep(humanoid: Humanoid, root: BasePart)
 	setVelocityVector(direction * Movement.GlideForwardSpeed - Vector3.new(0, Movement.GlideFallSpeed, 0))
 end
 
-local function heightAboveGround(root: BasePart): number
-	rayParams.FilterDescendantsInstances = { player.Character :: Model }
-	local hit = Workspace:Raycast(root.Position, Vector3.new(0, -200, 0), rayParams)
-	return if hit then root.Position.Y - hit.Position.Y else math.huge
-end
-
 local lastJumpRequestAt = 0
 
 local function onJumpRequest()
@@ -414,6 +499,9 @@ local function onJumpRequest()
 		return
 	end
 	lastJumpRequestAt = t
+	if mode == "plunge" then
+		return
+	end
 	if mode == "climb" then
 		if stamina >= StaminaConfig.ClimbLeapCost and os.clock() > leapUntil then
 			leapUntil = os.clock() + 0.3
@@ -434,6 +522,9 @@ end
 local function onServerState(message: { [string]: any })
 	if type(message.stamina) == "number" then
 		stamina = message.stamina
+	end
+	if type(message.charges) == "number" then
+		dodgeCharges = message.charges
 	end
 	if message.exhausted then
 		setSprint(false)
@@ -466,13 +557,14 @@ function MovementController:Start()
 			MovementController.setDodgeHeld(false)
 		end
 		return Enum.ContextActionResult.Sink
-	end, false, Enum.KeyCode.LeftShift, Enum.KeyCode.ButtonB)
+	end, false, Enum.KeyCode.LeftShift, Enum.UserInputType.MouseButton2, Enum.KeyCode.ButtonB)
 
 	UserInputService.JumpRequest:Connect(onJumpRequest)
 
 	player.CharacterAdded:Connect(function()
 		mode = "ground"
 		sprinting = false
+		plungeLanded = nil
 		velocity = nil
 		orientation = nil
 		glider = nil
@@ -488,6 +580,8 @@ function MovementController:Start()
 			climbStep(humanoid, root)
 		elseif mode == "glide" then
 			glideStep(humanoid, root)
+		elseif mode == "plunge" then
+			plungeStep(humanoid)
 		else
 			groundStep(humanoid, root)
 		end

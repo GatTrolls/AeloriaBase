@@ -2,13 +2,15 @@
 --[[
 	MovementService
 
-	The server side of sprint, dodge, climb and glide. The client moves its own character for
-	responsiveness, but every action that costs stamina is asked for here first:
+	The server side of sprint, dodge, climb, glide and plunges. The client moves its own
+	character for responsiveness, but everything that matters is decided here:
 
-	  * Stamina lives on the server (Shared.Combat.Stamina) and is worked out from timestamps.
+	  * Grip (stamina) lives on the server (Shared.Combat.Stamina), worked out from timestamps.
 	  * Sprint speed is only ever set by the server.
-	  * Dodge invulnerability is granted by the server, and only when the dodge was paid for.
-	  * When stamina runs out the server ends the activity and tells the client.
+	  * Dodges follow Shared.Combat.Defense: three in a row, then a short cooldown. Each accepted
+	    dodge is logged, and enemy strikes judge evasion, Slips and Covers from that log.
+	  * When Grip runs out the server ends the activity and tells the client.
+	  * Recent heights are kept so a plunge can be checked against a real fall.
 
 	It also samples each character's speed and logs anyone who keeps moving faster than any
 	legitimate movement allows, for review rather than automatic punishment.
@@ -21,23 +23,28 @@ local Workspace = game:GetService("Workspace")
 
 local Shared = ReplicatedStorage.Shared
 local CombatConfig = require(Shared.Config.CombatConfig)
+local Defense = require(Shared.Combat.Defense)
 local Net = require(Shared.Net)
 local RateLimit = require(Shared.RateLimit)
 local Stamina = require(Shared.Combat.Stamina)
 
+local ActionLog = require(script.Parent.Parent.Combat.ActionLog)
+
 type PlayerState = {
 	stamina: Stamina.State,
-	invulnerableUntil: number,
-	lastDodgeAt: number,
+	dodge: Defense.DodgeState,
 	lastSentValue: number,
 	lastSample: Vector3?,
 	strikes: number,
+	-- Root heights sampled ten times a second, newest last.
+	heights: { { at: number, y: number } },
 }
 
 local MovementService = {}
 
 local Movement = CombatConfig.Movement
 local StaminaConfig = CombatConfig.Stamina
+local HEIGHT_HISTORY_SECONDS = 2
 
 local states: { [Player]: PlayerState } = {}
 local limiter = RateLimit.new(CombatConfig.RateLimits.MoveIntent)
@@ -45,6 +52,11 @@ local stateRemote: RemoteEvent
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
+end
+
+local function rootOf(player: Player): BasePart?
+	local character = player.Character
+	return character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 end
 
 local function humanoidOf(player: Player): Humanoid?
@@ -68,9 +80,22 @@ local function setSprintSpeed(player: Player, sprinting: boolean)
 	end
 end
 
-function MovementService.isInvulnerable(player: Player, at: number?): boolean
+-- How far the player has fallen within the last `seconds`: the highest recent root height
+-- minus the current one.
+function MovementService.recentDrop(player: Player, seconds: number): number
 	local state = states[player]
-	return state ~= nil and (at or now()) < state.invulnerableUntil
+	local root = rootOf(player)
+	if not state or not root then
+		return 0
+	end
+	local since = now() - seconds
+	local peak = root.Position.Y
+	for _, sample in state.heights do
+		if sample.at >= since then
+			peak = math.max(peak, sample.y)
+		end
+	end
+	return peak - root.Position.Y
 end
 
 local function onIntent(player: Player, intent: unknown, on: unknown)
@@ -88,14 +113,11 @@ local function onIntent(player: Player, intent: unknown, on: unknown)
 	end
 
 	if intent == "dodge" then
-		local ok = t - state.lastDodgeAt >= Movement.DodgeCooldownSeconds * 0.8
-			and Stamina.spend(state.stamina, StaminaConfig.DodgeCost, t)
-		if ok then
-			state.lastDodgeAt = t
-			state.invulnerableUntil = t + Movement.DodgeInvulnerableSeconds
-			send(player, state, { dodge = true })
+		if Defense.tryDodge(state.dodge, t) then
+			ActionLog.get(player).lastDodgeAt = t
+			send(player, state, { dodge = true, charges = Defense.chargesLeft(state.dodge, t) })
 		else
-			send(player, state, { denied = "dodge" })
+			send(player, state, { denied = "dodge", charges = Defense.chargesLeft(state.dodge, t) })
 		end
 		return
 	end
@@ -135,14 +157,21 @@ local function tick()
 				send(player, state)
 			end
 		end
+
+		local root = rootOf(player)
+		if root then
+			table.insert(state.heights, { at = t, y = root.Position.Y })
+			while state.heights[1] and t - state.heights[1].at > HEIGHT_HISTORY_SECONDS do
+				table.remove(state.heights, 1)
+			end
+		end
 	end
 end
 
 -- Logs characters that keep moving faster than anything in the game allows.
 local function sampleSpeeds(interval: number)
 	for player, state in states do
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local root = rootOf(player)
 		if root then
 			local position = root.Position * Vector3.new(1, 0, 1)
 			local last = state.lastSample
@@ -168,11 +197,11 @@ function MovementService:Start()
 	local function onPlayerAdded(player: Player)
 		local state: PlayerState = {
 			stamina = Stamina.new(now()),
-			invulnerableUntil = 0,
-			lastDodgeAt = -math.huge,
+			dodge = Defense.newDodge(),
 			lastSentValue = StaminaConfig.Max,
 			lastSample = nil,
 			strikes = 0,
+			heights = {},
 		}
 		states[player] = state
 		player.CharacterAdded:Connect(function(character)
@@ -180,6 +209,7 @@ function MovementService:Start()
 			humanoid.WalkSpeed = Movement.WalkSpeed
 			Stamina.setActivity(state.stamina, "none", now())
 			state.lastSample = nil
+			table.clear(state.heights)
 			send(player, state)
 		end)
 	end
@@ -190,6 +220,7 @@ function MovementService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		states[player] = nil
 		RateLimit.forget(limiter, player)
+		ActionLog.forget(player)
 	end)
 
 	local tickAccumulator, sampleAccumulator = 0, 0

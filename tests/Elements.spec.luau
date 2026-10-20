@@ -1,98 +1,131 @@
 --!strict
+local ElementConfig = require("../src/shared/Config/ElementConfig")
 local Elements = require("../src/shared/Elements")
 local TestKit = require("./TestKit")
 
+local function reactionId(result: Elements.ApplyResult): string?
+	return result.reaction and result.reaction.id
+end
+
 return {
-	["an element on a clean target becomes an aura"] = function()
+	["a status element on a clean target leaves its status"] = function()
 		local target = Elements.newTarget()
-		local result = Elements.apply(target, "Water", 1, 0)
+		local result = Elements.apply(target, "Tide", 0)
 		TestKit.equal(result.reaction, nil)
-		TestKit.equal(result.auraAfter, "Water")
+		TestKit.equal(result.statusAfter, "Tide")
 	end,
 
-	["wind, earth and light react but never stick"] = function()
-		for _, element in { "Wind", "Earth", "Light" } do
+	["gale, terra and astral never stay"] = function()
+		for _, element in { "Gale", "Terra", "Astral" } do
 			local target = Elements.newTarget()
-			TestKit.equal(Elements.apply(target, element, 2, 0).auraAfter, nil, element)
+			TestKit.equal(Elements.apply(target, element, 0).statusAfter, nil, element)
 		end
 	end,
 
-	["earth on an aura gives the attacker a shield of that element"] = function()
+	["statuses run out after their duration"] = function()
 		local target = Elements.newTarget()
-		Elements.apply(target, "Ice", 2, 0)
-		local result = Elements.apply(target, "Earth", 1, 0)
-		TestKit.equal(result.reaction and result.reaction.id, "Shield")
-		TestKit.equal(result.shieldElement, "Ice")
+		Elements.apply(target, "Tide", 0)
+		TestKit.equal(Elements.statusOf(target, 9.9), "Tide")
+		TestKit.equal(Elements.statusOf(target, 10.1), nil)
 	end,
 
-	["every reaction in the table names a known element pair"] = function()
-		local ElementConfig = require("../src/shared/Config/ElementConfig")
-		local known = {}
-		for _, element in ElementConfig.Elements do
-			known[element] = true
+	["the same element refreshes the status"] = function()
+		local target = Elements.newTarget()
+		Elements.apply(target, "Flame", 0)
+		Elements.apply(target, "Flame", 5)
+		TestKit.equal(Elements.statusOf(target, 12), "Flame")
+	end,
+
+	["scald and thaw multiply the hit whichever element lands second"] = function()
+		for _, order in { { "Flame", "Tide" }, { "Tide", "Flame" } } do
+			local target = Elements.newTarget()
+			Elements.apply(target, order[1], 0)
+			local result = Elements.apply(target, order[2], 1)
+			TestKit.equal(reactionId(result), "Scald")
+			TestKit.equal(result.hitMultiplier, 1.5)
 		end
-		for key in ElementConfig.Reactions do
-			local trigger, aura = string.match(key, "^(%a+)>(%a+)$")
-			TestKit.truthy(trigger and known[trigger] and aura and known[aura], key)
-			TestKit.truthy(not ElementConfig.NonAttaching[aura :: string], `{key}: aura can never exist`)
+		local frozen = Elements.newTarget()
+		Elements.apply(frozen, "Frost", 0)
+		TestKit.equal(Elements.apply(frozen, "Flame", 1).hitMultiplier, 1.75)
+	end,
+
+	["a reaction uses the status up"] = function()
+		local target = Elements.newTarget()
+		Elements.apply(target, "Volt", 0)
+		local result = Elements.apply(target, "Tide", 1)
+		TestKit.equal(reactionId(result), "Conduct")
+		TestKit.equal(result.consumed, "Volt")
+		TestKit.equal(Elements.statusOf(target, 1), nil)
+	end,
+
+	["every pair of status elements reacts"] = function()
+		local statusElements = {}
+		for element in ElementConfig.Statuses do
+			table.insert(statusElements, element)
+		end
+		for _, a in statusElements do
+			for _, b in statusElements do
+				if a ~= b then
+					TestKit.truthy(ElementConfig.reactionFor(a, b), `{a} on {b}`)
+				end
+			end
 		end
 	end,
 
-	["strong amplify doubles the hit and weak amplify gives 1.5x"] = function()
-		local wet = Elements.newTarget()
-		Elements.apply(wet, "Fire", 2, 0)
-		local strong = Elements.apply(wet, "Water", 1, 0.1)
-		TestKit.equal(strong.reaction and strong.reaction.id, "Steam")
-		TestKit.equal(strong.hitMultiplier, 2)
-
-		local burning = Elements.newTarget()
-		Elements.apply(burning, "Water", 2, 0)
-		local weak = Elements.apply(burning, "Fire", 1, 0.1)
-		TestKit.equal(weak.hitMultiplier, 1.5)
-	end,
-
-	["reactions consume the aura"] = function()
+	["lock freezes the target and a heavy hit shatters it"] = function()
 		local target = Elements.newTarget()
-		Elements.apply(target, "Fire", 1, 0) -- 0.8 units of Fire
-		local result = Elements.apply(target, "Water", 1, 0) -- strong Steam eats 2 units
-		TestKit.equal(result.auraAfter, nil, "Fire aura should be gone")
+		Elements.apply(target, "Tide", 0)
+		TestKit.equal(reactionId(Elements.apply(target, "Frost", 1)), "Lock")
+		TestKit.truthy(Elements.hasEffect(target, "Locked", 3.9))
+		TestKit.truthy(Elements.shatter(target, 2), "shatters while locked")
+		TestKit.equal(Elements.hasEffect(target, "Locked", 2.1), false, "and only once")
 	end,
 
-	["sweep spreads the aura element"] = function()
+	["brittle lowers defence for 8 seconds"] = function()
 		local target = Elements.newTarget()
-		Elements.apply(target, "Lightning", 2, 0)
-		local result = Elements.apply(target, "Wind", 1, 0)
-		TestKit.equal(result.reaction and result.reaction.id, "Sweep")
-		TestKit.equal(result.spreadElement, "Lightning")
+		Elements.apply(target, "Frost", 0)
+		Elements.apply(target, "Volt", 0)
+		TestKit.truthy(Elements.hasEffect(target, "Brittle", 7.9))
+		TestKit.equal(Elements.hasEffect(target, "Brittle", 8.1), false)
 	end,
 
-	["freeze applies a timed status"] = function()
+	["sweep cuts resistance to the swept element"] = function()
 		local target = Elements.newTarget()
-		Elements.apply(target, "Water", 2, 0)
-		Elements.apply(target, "Ice", 1, 1)
-		TestKit.truthy(Elements.hasStatus(target, "Freeze", 2))
-		TestKit.truthy(not Elements.hasStatus(target, "Freeze", 3.5))
+		Elements.apply(target, "Flame", 0)
+		local result = Elements.apply(target, "Gale", 1)
+		TestKit.equal(reactionId(result), "Sweep")
+		TestKit.equal(result.consumed, "Flame")
+		TestKit.equal(Elements.resistanceCut(target, "Flame", 2), 0.2)
+		TestKit.equal(Elements.resistanceCut(target, "Tide", 2), 0)
 	end,
 
-	["auras decay away over time"] = function()
+	["starburst works once per enemy every 2 seconds"] = function()
 		local target = Elements.newTarget()
-		Elements.apply(target, "Ice", 1, 0) -- 0.8 units, lasts 6 + 3 * 0.8 = 8.4 s
-		TestKit.equal(Elements.currentAura(target, 8), "Ice")
-		TestKit.equal(Elements.currentAura(target, 8.5), nil)
+		Elements.apply(target, "Tide", 0)
+		TestKit.equal(reactionId(Elements.apply(target, "Astral", 1)), "Starburst")
+		Elements.apply(target, "Tide", 1.5)
+		TestKit.equal(Elements.apply(target, "Astral", 2).reaction, nil, "still cooling down")
+		TestKit.equal(Elements.statusOf(target, 2), "Tide", "the status stays when nothing reacts")
+		TestKit.equal(reactionId(Elements.apply(target, "Astral", 3.1)), "Starburst")
 	end,
 
-	["internal cooldown allows hits 1, 4, 7 and resets after the window"] = function()
-		local icd = Elements.newIcd()
-		local allowed = {}
-		for hit = 1, 7 do
-			allowed[hit] = Elements.icdAllows(icd, "p1:basic", hit * 0.1)
-		end
-		TestKit.equal(allowed[1], true)
-		TestKit.equal(allowed[2], false)
-		TestKit.equal(allowed[3], false)
-		TestKit.equal(allowed[4], true)
-		TestKit.equal(allowed[7], true)
-		TestKit.equal(Elements.icdAllows(icd, "p1:basic", 5), true, "window should reset")
-		TestKit.equal(Elements.icdAllows(icd, "p2:basic", 5), true, "sources are independent")
+	["basic attacks apply their element once every 2.5 seconds per source"] = function()
+		local target = Elements.newTarget()
+		local basic = { basic = true, sourceKey = "p1:hero" }
+		TestKit.truthy(Elements.apply(target, "Tide", 0, basic).applied)
+		TestKit.equal(Elements.apply(target, "Tide", 1, basic).applied, false)
+		TestKit.truthy(Elements.apply(target, "Tide", 2.6, basic).applied)
+		TestKit.truthy(
+			Elements.apply(target, "Tide", 2.7, { basic = true, sourceKey = "p2:hero" }).applied,
+			"other sources are independent"
+		)
+	end,
+
+	["techniques always apply"] = function()
+		local target = Elements.newTarget()
+		Elements.apply(target, "Flame", 0)
+		TestKit.equal(reactionId(Elements.apply(target, "Tide", 0.1)), "Scald")
+		Elements.apply(target, "Flame", 0.2)
+		TestKit.equal(reactionId(Elements.apply(target, "Tide", 0.3)), "Scald")
 	end,
 }

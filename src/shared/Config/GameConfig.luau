@@ -12,11 +12,12 @@ local GameConfig = {
 		MaxMembers = 4,
 		SwapCooldownSeconds = 1,
 		-- The party every player fights with in the combat slice, before rosters are wired in.
+		-- The free team every player ends up with: the main character plus the three story heroes.
 		StarterParty = {
-			"hero_placeholder_a",
-			"hero_placeholder_b",
-			"hero_placeholder_c",
-			"hero_placeholder_d",
+			"hero_main",
+			"hero_tide_healer",
+			"hero_frost_debuffer",
+			"hero_flame_hammer",
 		},
 	},
 

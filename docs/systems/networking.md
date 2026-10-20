@@ -18,10 +18,10 @@ local result = Net.func(Net.Names.RequestPull):InvokeServer("standard", 10)  -- 
 | `RequestPull` | RemoteFunction | Make 1 or 10 wishes on a banner |
 | `GetBannerOdds` | RemoteFunction | Get the published odds for a banner |
 | `ProfileChanged` | RemoteEvent | Push a profile snapshot to the client |
-| `CombatAction` | RemoteEvent | Ask to attack, use a skill or a burst, with an aim direction |
+| `CombatAction` | RemoteEvent | Ask to attack, charge, plunge, or use a Technique or Finale, with an aim direction |
 | `CombatFeedback` | RemoteEvent | Tell every client about confirmed actions, hits, strikes, staggers and swaps |
 | `MoveIntent` | RemoteEvent | Ask to sprint, dodge, climb, leap or glide |
-| `MoveState` | RemoteEvent | Stamina updates, refusals and exhaustion for one player |
+| `MoveState` | RemoteEvent | Grip updates, dodges left, refusals and exhaustion for one player |
 | `PartySwap` | RemoteEvent | Ask to swap to a party slot |
 | `PartyState` | RemoteEvent | Push a party snapshot: HP, shields, energy and cooldowns |
 

@@ -1,30 +1,45 @@
 --!strict
--- Presentation for elements and reactions: colours and on-screen labels. Kept apart from
--- ElementConfig so the rules engine never depends on how things look. RGB 0-255.
+-- Presentation for elements and reactions: colours, icon shapes and on-screen labels. Kept apart
+-- from ElementConfig so the rules engine never depends on how things look. RGB 0-255.
+--
+-- Every element has a colour and its own shape, so statuses still read in colour-blind modes.
+-- Every reaction flashes its name in one big word.
 
 local ElementStyle = {
-	Physical = { 235, 235, 235 },
+	Physical = { 240, 240, 240 },
 
 	Elements = {
-		Wind = { 120, 230, 190 },
-		Earth = { 230, 180, 80 },
-		Fire = { 255, 120, 70 },
-		Water = { 70, 160, 255 },
-		Ice = { 150, 230, 255 },
-		Lightning = { 185, 120, 255 },
-		Light = { 255, 240, 160 },
+		Flame = { 240, 115, 85 },
+		Tide = { 90, 168, 236 },
+		Frost = { 127, 208, 240 },
+		Volt = { 167, 132, 238 },
+		Gale = { 69, 203, 169 },
+		Terra = { 221, 178, 80 },
+		Astral = { 228, 182, 82 },
 	} :: { [string]: { number } },
 
+	-- One shape per element: a flame, a drop, a snowflake, a zigzag, a swirl, a diamond and a
+	-- four-point star.
+	Icons = {
+		Flame = "🔥",
+		Tide = "💧",
+		Frost = "❄",
+		Volt = "⚡",
+		Gale = "🌀",
+		Terra = "◆",
+		Astral = "✦",
+	} :: { [string]: string },
+
 	Reactions = {
-		Steam = { label = "Steam", color = { 200, 220, 255 } },
-		Melt = { label = "Melt", color = { 255, 190, 110 } },
-		Overload = { label = "Overload", color = { 255, 110, 160 } },
-		Conduct = { label = "Conduct", color = { 170, 140, 255 } },
-		Freeze = { label = "Freeze", color = { 170, 240, 255 } },
-		Brittle = { label = "Brittle", color = { 210, 200, 255 } },
-		Sweep = { label = "Sweep", color = { 120, 230, 190 } },
-		Shield = { label = "Shield", color = { 230, 180, 80 } },
-		Radiance = { label = "Radiance", color = { 255, 240, 160 } },
+		Scald = { label = "SCALD!", color = { 255, 170, 120 } },
+		Thaw = { label = "THAW!", color = { 255, 190, 110 } },
+		Flashpoint = { label = "FLASHPOINT!", color = { 255, 110, 160 } },
+		Conduct = { label = "CONDUCT!", color = { 170, 140, 255 } },
+		Lock = { label = "LOCK!", color = { 170, 240, 255 } },
+		Brittle = { label = "BRITTLE!", color = { 210, 200, 255 } },
+		Sweep = { label = "SWEEP!", color = { 120, 230, 190 } },
+		Geode = { label = "GEODE!", color = { 230, 190, 90 } },
+		Starburst = { label = "STARBURST!", color = { 255, 225, 130 } },
 	} :: { [string]: { label: string, color: { number } } },
 }
 

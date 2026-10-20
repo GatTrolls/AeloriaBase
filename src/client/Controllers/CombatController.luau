@@ -2,14 +2,18 @@
 --[[
 	CombatController
 
-	Attack, skill and burst input, plus every piece of combat feedback.
+	Attack, charged attack, plunge, Technique and Finale input, plus every piece of combat
+	feedback.
 
-	Inputs: left mouse / X on a gamepad / the attack button to attack (hold to keep the chain
-	going), E / Y / skill button for the elemental skill, Q / R1 / burst button for the burst.
+	Inputs follow the combat plan:
+	  Attack: left click, X on a gamepad, or the attack button. Press to attack; hold to charge.
+	          Attacking while gliding or falling plunges.
+	  Technique: E, R1, or the Technique button.
+	  Finale: Q, Y, or the Finale button.
 
-	The client plays its own swing the moment the input is accepted by the local copy of
-	Shared.Combat.Ability, then asks CombatService. Damage numbers, reactions and hit-stop wait
-	for the server's confirmed hits, so what players see is always what actually happened.
+	The client plays its own swing the moment the local copy of Shared.Combat.Ability accepts
+	the input, then asks CombatService. Damage numbers, reactions and hit-stop wait for the
+	server's confirmed hits, so what players see is always what actually happened.
 ]]
 
 local ContextActionService = game:GetService("ContextActionService")
@@ -29,10 +33,21 @@ local PartyController = require(script.Parent.PartyController)
 
 local player = Players.LocalPlayer
 
+type Action = "attack" | "charged" | "plunge" | "technique" | "finale"
+
 local CombatController = {}
 
 local actionRemote: RemoteEvent
 local attackHeld = false
+local attackHeldSince = 0
+local chargedDone = false
+
+local GOLD = Color3.fromRGB(255, 205, 80)
+local TELEGRAPH_COLORS: { [string]: Color3 } = {
+	normal = Color3.fromRGB(255, 245, 230),
+	gold = GOLD,
+	red = Color3.fromRGB(255, 70, 55),
+}
 
 local function characterParts(character: Model?): (Humanoid?, BasePart?)
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -40,47 +55,54 @@ local function characterParts(character: Model?): (Humanoid?, BasePart?)
 	return humanoid, root
 end
 
-local function playAction(
+-- The swing every player sees for a basic or charged attack, or a plunge's landing.
+local function playSwing(
 	character: Model,
 	kit: Heroes.Kit,
 	action: string,
 	index: number?,
 	origin: Vector3,
 	forward: Vector3,
-	areaCenter: Vector3?
+	element: string?
 )
-	local color = Effects.elementColor(kit.element)
-	if action == "attack" and index then
-		local hit = kit.chain[index]
-		local swingColor = if kit.chainIsElemental then color else Color3.fromRGB(245, 245, 255)
-		Effects.swingArm(character, hit.heavy)
-		if kit.weapon == "catalyst" then
-			Effects.bolt(origin, forward, hit.range, color)
-		else
-			Effects.slash(origin, forward, hit.range, hit.arc, swingColor, hit.heavy)
-		end
-	elseif action == "skill" then
-		Effects.swingArm(character, true)
-		Effects.area(areaCenter or origin, kit.skill.radius, color, false)
-	elseif action == "burst" then
-		Effects.swingArm(character, true)
-		Effects.area(areaCenter or origin, kit.burst.radius, color, true)
+	local color = if element then Effects.elementColor(element) else Color3.fromRGB(245, 245, 255)
+	if action == "plunge" then
+		Effects.shockwave(origin, kit.plunge.radius, color)
+		Effects.area(origin, kit.plunge.radius, color, false)
+		return
+	end
+	local hit: Heroes.Hit? = if action == "charged"
+		then kit.charged
+		elseif index then kit.chain[index]
+		else nil
+	if not hit then
+		return
+	end
+	Effects.swingArm(character, hit.heavy)
+	if kit.weapon == "focus" or kit.weapon == "bow" then
+		Effects.bolt(origin, forward, hit.range, Effects.elementColor(kit.element))
+	elseif hit.arc >= 360 then
+		Effects.area(origin, hit.range, color, false)
+	else
+		Effects.slash(origin, forward, hit.range, hit.arc, color, hit.heavy)
 	end
 end
 
--- Tries one action locally; if the local timing allows it, plays it and sends it to the server.
-local function perform(action: "attack" | "skill" | "burst")
+-- Tries one action locally; if the local timing allows it, sends it and plays it at once.
+local function perform(action: Action): boolean
 	local character = player.Character
 	local humanoid, root = characterParts(character)
 	if not character or not humanoid or not root or humanoid.Health <= 0 then
-		return
+		return false
 	end
-	if MovementController.getMode() ~= "ground" or MovementController.isDodging() then
-		return
+	if
+		action ~= "plunge" and (MovementController.getMode() ~= "ground" or MovementController.isDodging())
+	then
+		return false
 	end
 	local kit, state = PartyController.active()
 	if not kit or not state then
-		return
+		return false
 	end
 
 	local now = PartyController.now()
@@ -88,45 +110,161 @@ local function perform(action: "attack" | "skill" | "burst")
 	if action == "attack" then
 		index = Ability.tryAttack(state, kit, now, 0)
 		if not index then
-			return
+			return false
 		end
-	elseif action == "skill" then
-		if not Ability.trySkill(state, kit, now, 0) then
-			return
+	elseif action == "charged" then
+		if not Ability.tryCharged(state, kit, now, 0) then
+			return false
 		end
-	elseif not Ability.tryBurst(state, kit, now, 0) then
-		return
+	elseif action == "plunge" then
+		if not Ability.tryPlunge(state, now, 0) then
+			return false
+		end
+	elseif action == "technique" then
+		if not Ability.tryTechnique(state, kit, now, 0) then
+			return false
+		end
+	elseif not Ability.tryFinale(state, kit, now, 0) then
+		return false
 	end
 
 	local forward = CameraController.getAimDirection()
-	root.CFrame = CFrame.lookAt(root.Position, root.Position + forward)
-	local area = if action == "skill" then kit.skill elseif action == "burst" then kit.burst else nil
-	local areaCenter = if area then root.Position + forward * area.forward else nil
+	if action ~= "plunge" then
+		root.CFrame = CFrame.lookAt(root.Position, root.Position + forward)
+	end
 	-- Send first: a problem in a cosmetic effect must never cost the player their input.
 	actionRemote:FireServer(action, forward)
-	playAction(character, kit, action, index, root.Position, forward, areaCenter)
-	if action == "burst" then
-		CameraController.shake(0.8)
+
+	if action == "attack" or action == "charged" or action == "plunge" then
+		local element = if kit.chainIsElemental then kit.element else nil
+		playSwing(character, kit, action, index, root.Position, forward, element)
+	elseif action == "technique" then
+		Effects.swingArm(character, true)
+		local first = kit.technique.steps[1]
+		if first and first.kind == "dash" then
+			MovementController.dash(forward, first.length or 10, first.seconds or 0.25)
+		end
+	else
+		Effects.swingArm(character, true)
+		Effects.flash(character, Effects.elementColor(kit.element), 0.6)
+		CameraController.shake(0.9)
 	end
+	return true
 end
 
-function CombatController.attack()
-	perform("attack")
+local function startPlunge()
+	MovementController.plunge(function()
+		perform("plunge")
+	end)
 end
 
-function CombatController.skill()
-	perform("skill")
+function CombatController.technique()
+	perform("technique")
 end
 
-function CombatController.burst()
-	perform("burst")
+function CombatController.finale()
+	perform("finale")
 end
 
 function CombatController.setAttackHeld(held: boolean)
-	attackHeld = held
-	if held then
-		perform("attack")
+	if held and not attackHeld then
+		attackHeld = true
+		attackHeldSince = os.clock()
+		chargedDone = false
+		if MovementController.canPlunge() then
+			chargedDone = true
+			startPlunge()
+		else
+			perform("attack")
+		end
+	elseif not held then
+		attackHeld = false
 	end
+end
+
+local function showHits(hits: { any }, heavy: boolean?)
+	for _, hit in hits do
+		Effects.spark(hit.position, Effects.elementColor(hit.element), heavy)
+		Effects.damageNumber(hit.position, hit.amount, hit.element, hit.crit)
+		if hit.bonus and hit.bonus > 0 then
+			Effects.damageNumber(hit.position + Vector3.new(0, 1, 0), hit.bonus, hit.element, false)
+		end
+		if hit.reaction then
+			Effects.reaction(hit.position, hit.reaction)
+		end
+		if hit.shatter then
+			Effects.popup(hit.position + Vector3.new(0, 2, 0), "SHATTER!", Color3.fromRGB(190, 240, 255), 1.2)
+		end
+	end
+end
+
+local function hitStopFor(mine: boolean, hits: { any }, heavy: boolean?)
+	if mine and #hits > 0 and player.Character then
+		local seconds = if heavy
+			then CombatConfig.Combat.HeavyHitStopSeconds
+			else CombatConfig.Combat.HitStopSeconds
+		Effects.hitStop(player.Character, seconds)
+		CameraController.shake(if heavy then 0.45 else 0.18)
+	end
+end
+
+local function onStep(message: { [string]: any }, mine: boolean)
+	local color = Effects.elementColor(message.element)
+	local kind = message.step
+	local hits = message.hits or {}
+
+	if kind == "hit" then
+		if not message.tick then
+			if message.shape == "arc" then
+				Effects.slash(
+					message.origin,
+					message.forward,
+					message.radius,
+					message.arc or 120,
+					color,
+					true
+				)
+			else
+				Effects.area(message.center, message.radius, color, message.part == "finale")
+			end
+		end
+	elseif kind == "line" or kind == "dash" then
+		Effects.streak(message.from, message.to, color, 1.4)
+	elseif kind == "pull" then
+		Effects.implode(message.center, message.radius, color)
+	elseif kind == "rain" then
+		Effects.fallingStar(message.center, message.radius, color)
+	elseif kind == "zone" then
+		if message.seconds then
+			Effects.zone(message.center, message.radius, message.seconds, color)
+		end
+		if message.healed then
+			Effects.healNumber(message.position, message.healed)
+		end
+	elseif kind == "heal" then
+		if message.healed and message.healed > 0 then
+			Effects.healNumber(message.position, message.healed)
+		end
+		local character = message.attacker and message.attacker.Character
+		if character then
+			Effects.flash(character, Color3.fromRGB(120, 235, 140), 0.4)
+		end
+	elseif kind == "effect" then
+		for _, position in message.positions or {} do
+			Effects.popup(position + Vector3.new(0, 2, 0), string.upper(message.effect), color, 0.9)
+		end
+		if message.effect ~= "Marked" then
+			Effects.area(message.center, message.radius, color, false)
+		end
+	elseif kind == "infuse" then
+		local character = message.attacker and message.attacker.Character
+		if character then
+			Effects.flash(character, color, 1)
+		end
+	end
+
+	showHits(hits, message.heavy)
+	hitStopFor(mine, hits, message.heavy)
 end
 
 local function onFeedback(message: { [string]: any })
@@ -140,43 +278,69 @@ local function onFeedback(message: { [string]: any })
 		if not mine and kit and character then
 			-- Spawned so a cosmetic error can never stop the damage numbers below.
 			task.spawn(
-				playAction,
+				playSwing,
 				character,
 				kit,
 				message.action,
 				message.index,
 				message.origin,
 				message.forward,
-				message.areaCenter
+				message.element
 			)
 		end
-		local hits = message.hits :: { any }
-		for _, hit in hits do
-			Effects.spark(hit.position, Effects.elementColor(hit.element), message.heavy)
-			Effects.damageNumber(hit.position, hit.amount, hit.element, hit.crit)
-			if hit.bonus > 0 then
-				Effects.damageNumber(hit.position + Vector3.new(0, 1, 0), hit.bonus, hit.element, false)
-			end
-			if hit.reaction then
-				Effects.reaction(hit.position, hit.reaction)
-			end
+		if message.counter and message.hits and #message.hits > 0 then
+			Effects.popup(message.hits[1].position + Vector3.new(0, 2.5, 0), "COUNTER!", GOLD, 1.2)
 		end
-		if mine and #hits > 0 and player.Character then
-			local heavy = message.heavy == true
-			Effects.hitStop(
-				player.Character,
-				if heavy then CombatConfig.Combat.HeavyHitStopSeconds else CombatConfig.Combat.HitStopSeconds
+		showHits(message.hits, message.heavy)
+		hitStopFor(mine, message.hits, message.heavy)
+	elseif kind == "ability" then
+		local character = attacker and attacker.Character
+		local kit = Heroes[message.heroId]
+		if not mine and character and kit then
+			Effects.swingArm(character, true)
+			Effects.flash(
+				character,
+				Effects.elementColor(kit.element),
+				if message.part == "finale" then 0.6 else 0.3
 			)
-			CameraController.shake(if heavy then 0.45 else 0.18)
 		end
+		if message.part == "relay" and kit then
+			Effects.popup(
+				message.origin + Vector3.new(0, 3, 0),
+				"RELAY",
+				Effects.elementColor(kit.element),
+				1
+			)
+		end
+	elseif kind == "step" then
+		onStep(message, mine)
+	elseif kind == "explosion" or kind == "sweep" then
+		local color = Effects.elementColor(message.element)
+		Effects.area(message.position, message.radius or 6, color, kind == "explosion")
+		showHits(message.hits or {})
+	elseif kind == "chain" then
+		local color = Effects.elementColor(message.element)
+		for _, hit in message.hits or {} do
+			Effects.lightning(message.position, hit.position, color)
+		end
+		showHits(message.hits or {})
+	elseif kind == "dot" then
+		Effects.damageNumber(message.position, message.amount, message.element, false)
+	elseif kind == "geode" then
+		Effects.popup(
+			message.position + Vector3.new(0, 2, 0),
+			"SHIELD",
+			Effects.elementColor(message.element),
+			1
+		)
 	elseif kind == "enemyStrike" then
-		Effects.shockwave(message.position, message.radius)
+		Effects.shockwave(message.position, message.radius, TELEGRAPH_COLORS[message.telegraph])
 		for _, victim in message.victims :: { any } do
 			local character = victim.player.Character
 			local _, root = characterParts(character)
 			if root then
 				if victim.evaded then
-					Effects.popup(root.Position, "Evade", Color3.fromRGB(220, 240, 255), 1)
+					Effects.popup(root.Position, "EVADE", Color3.fromRGB(220, 240, 255), 1)
 				elseif victim.amount and victim.amount > 0 then
 					Effects.popup(
 						root.Position,
@@ -191,8 +355,20 @@ local function onFeedback(message: { [string]: any })
 				end
 			end
 		end
-	elseif kind == "stagger" then
-		Effects.popup(message.position, "Break!", Color3.fromRGB(255, 220, 120), 1.2)
+	elseif kind == "slip" then
+		Effects.popup(message.position + Vector3.new(0, 2, 0), "SLIP!", Color3.fromRGB(190, 225, 255), 1.4)
+		if mine then
+			Effects.timeSlow(CombatConfig.Defense.SlipSlowSeconds)
+		end
+	elseif kind == "lift" then
+		Effects.popup(message.position + Vector3.new(0, 4, 0), "LIFT!", GOLD, 1.6)
+		Effects.spark(message.position, GOLD, true)
+		if mine and player.Character then
+			Effects.hitStop(player.Character, 0.15)
+			CameraController.shake(0.6)
+		end
+	elseif kind == "rattled" then
+		Effects.popup(message.position + Vector3.new(0, 5, 0), "RATTLED!", GOLD, 1.5)
 	elseif kind == "swap" then
 		local character = attacker and attacker.Character
 		-- The server sets HeroId before announcing the swap, and both arrive in order.
@@ -200,6 +376,12 @@ local function onFeedback(message: { [string]: any })
 		local kit = type(heroId) == "string" and Heroes[heroId] or nil
 		if character and kit then
 			Effects.flash(character, Effects.elementColor(kit.element), 0.35)
+			local _, root = characterParts(character)
+			if root and message.swap == "cover" then
+				Effects.popup(root.Position + Vector3.new(0, 3, 0), "COVER!", GOLD, 1.3)
+			elseif root and message.swap == "pileon" then
+				Effects.popup(root.Position + Vector3.new(0, 3, 0), "PILE-ON!", GOLD, 1.3)
+			end
 		end
 	end
 end
@@ -220,24 +402,31 @@ function CombatController:Start()
 		return Enum.ContextActionResult.Pass
 	end, false, Enum.UserInputType.MouseButton1, Enum.KeyCode.ButtonX)
 
-	ContextActionService:BindAction("FarbornSkill", function(_, state)
+	ContextActionService:BindAction("FarbornTechnique", function(_, state)
 		if state == Enum.UserInputState.Begin then
-			CombatController.skill()
+			CombatController.technique()
 		end
 		return Enum.ContextActionResult.Sink
-	end, false, Enum.KeyCode.E, Enum.KeyCode.ButtonY)
+	end, false, Enum.KeyCode.E, Enum.KeyCode.ButtonR1)
 
-	ContextActionService:BindAction("FarbornBurst", function(_, state)
+	ContextActionService:BindAction("FarbornFinale", function(_, state)
 		if state == Enum.UserInputState.Begin then
-			CombatController.burst()
+			CombatController.finale()
 		end
 		return Enum.ContextActionResult.Sink
-	end, false, Enum.KeyCode.Q, Enum.KeyCode.ButtonR1)
+	end, false, Enum.KeyCode.Q, Enum.KeyCode.ButtonY)
 
-	-- Holding attack keeps the chain going as soon as each recovery ends.
+	-- Holding attack charges: once the hold is long enough, the charged attack plays as soon as
+	-- the current swing's recovery allows.
 	RunService.Heartbeat:Connect(function()
-		if attackHeld then
-			perform("attack")
+		if not attackHeld or chargedDone then
+			return
+		end
+		local kit = PartyController.active()
+		if kit and os.clock() - attackHeldSince >= kit.charged.holdSeconds then
+			if perform("charged") then
+				chargedDone = true
+			end
 		end
 	end)
 end

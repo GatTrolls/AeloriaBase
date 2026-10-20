@@ -7,7 +7,8 @@
 	hand-built version; this service leaves an existing arena alone.
 
 	Layout: open floor, low boundary walls, cover pillars, a cliff to climb with a ramp beside it
-	for gliding practice, a spawn pad and enemy spawn markers tagged "EnemySpawn".
+	for gliding practice, a spawn pad and enemy spawn markers tagged "EnemySpawn". A marker's
+	"Enemy" attribute picks what spawns there (grunts by default); one elite waits by the cliff.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -131,6 +132,15 @@ local function build(): Folder
 		)
 		CollectionService:AddTag(marker, "EnemySpawn")
 	end
+	-- One elite waits further back, in front of the cliff.
+	local eliteMarker = part(spawns, "EliteSpawn", Vector3.new(2, 1, 2), CFrame.new(0, 0.6, 52), {
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+	})
+	eliteMarker:SetAttribute("Enemy", "elite_brute")
+	CollectionService:AddTag(eliteMarker, "EnemySpawn")
 
 	arena.Parent = Workspace
 	return arena

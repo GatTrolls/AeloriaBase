@@ -7,11 +7,12 @@
 
 	  local dev = game.ServerStorage.DevCommands
 	  dev:Invoke("spawn", 5)          -- spawn five more grunts around the arena centre
+	  dev:Invoke("spawn", 1, "elite_brute") -- or any enemy id from Config/Enemies
 	  dev:Invoke("party")             -- print every player's party HP, energy and active hero
 	  dev:Invoke("restore")           -- refill every party
-	  dev:Invoke("energy")            -- fill every hero's burst energy
+	  dev:Invoke("energy")            -- fill every hero's Finale energy
 	  dev:Invoke("hurt", 500)         -- damage each active hero (tests downed heroes and wipes)
-	  dev:Invoke("enemies")           -- list enemies with HP, aura, statuses and state
+	  dev:Invoke("enemies")           -- list enemies with HP, status, effects, Composure and state
 
 	Nothing here exists in a live server.
 ]]
@@ -21,6 +22,7 @@ local RunService = game:GetService("RunService")
 local ServerStorage = game:GetService("ServerStorage")
 local Workspace = game:GetService("Workspace")
 
+local Elements = require(game:GetService("ReplicatedStorage").Shared.Elements)
 local EnemyService = require(script.Parent.EnemyService)
 local PartyService = require(script.Parent.PartyService)
 
@@ -28,12 +30,12 @@ local DevService = {}
 
 local commands: { [string]: (...any) -> any } = {}
 
-function commands.spawn(count: number?)
+function commands.spawn(count: number?, enemyId: string?)
 	local total = math.clamp(count or 1, 1, 30)
 	for index = 1, total do
 		local angle = index / total * math.pi * 2
 		local position = Vector3.new(math.cos(angle) * 15, 0.6, 10 + math.sin(angle) * 15)
-		EnemyService.spawn("grunt_melee", CFrame.new(position))
+		EnemyService.spawn(enemyId or "grunt_melee", CFrame.new(position))
 	end
 	return `spawned {total}`
 end
@@ -48,14 +50,15 @@ function commands.party()
 				table.insert(
 					lines,
 					string.format(
-						"%s%d %s hp=%d/%d shield=%d energy=%d",
+						"%s%d %s hp=%d/%d shield=%d energy=%d infused=%d",
 						if slot == record.party.active then "*" else " ",
 						slot,
 						member.heroId,
 						member.hp,
 						member.maxHp,
 						member.shield,
-						ability.energy
+						ability.energy,
+						ability.infusedHits
 					)
 				)
 			end
@@ -77,7 +80,7 @@ function commands.restore()
 	return "restored"
 end
 
--- Fills every hero's burst energy.
+-- Fills every hero's Finale energy.
 function commands.energy()
 	for _, player in Players:GetPlayers() do
 		PartyService.addEnergy(player, math.huge)
@@ -98,20 +101,22 @@ function commands.enemies()
 	local now = Workspace:GetServerTimeNow()
 	local lines = {}
 	for index, enemy in EnemyService.getAll() do
-		local statuses = {}
-		for id, endsAt in enemy.elements.status do
+		local effects = {}
+		for id, endsAt in enemy.elements.effects do
 			if endsAt > now then
-				table.insert(statuses, id)
+				table.insert(effects, id)
 			end
 		end
 		table.insert(
 			lines,
 			string.format(
-				"%d hp=%d aura=%s status=%s state=%s",
+				"%d %s hp=%d status=%s effects=%s composure=%d state=%s",
 				index,
+				enemy.def.id,
 				enemy.hp,
-				enemy.model:GetAttribute("Aura") or "",
-				table.concat(statuses, ","),
+				Elements.statusOf(enemy.elements, now) or "",
+				table.concat(effects, ","),
+				enemy.brain.composure,
 				enemy.brain.state
 			)
 		)

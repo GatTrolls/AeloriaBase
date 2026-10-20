@@ -33,12 +33,12 @@ Every system is designed and built by Owl On The Moon Studios. Full write-ups ar
 | [Networking](docs/systems/networking.md) | One registry for all remotes; server-authoritative by rule | Built |
 | [Player data](docs/systems/player-data.md) | Profiles with retries, reconcile, autosave and safe shutdown | Built (starter) |
 | [Wish system](docs/systems/wish-system.md) | Banners, soft and hard pity, featured 50/50, published odds, regional policy checks | Built, tested |
-| [Elemental reactions](docs/systems/elemental-reactions.md) | Aura gauges with decay, 9 reactions, internal cooldowns | Built, tested |
-| [Damage model](docs/systems/damage-model.md) | Level-scaled defense, resistance curves, crits, amplify and transform damage | Built, tested |
-| [Combat](docs/systems/combat.md) | Server-confirmed attack chains, skills and bursts with instant client feedback | Built, tested |
-| [Party and swap](docs/systems/party.md) | Four heroes, instant swaps, per-hero HP and energy | Built, tested |
-| [Movement and camera](docs/systems/movement-and-camera.md) | Sprint, dodge, climb and glide on server-owned stamina; lock-on camera | Built, tested |
-| [Enemy AI](docs/systems/enemy-ai.md) | Telegraphed attacks, attack tokens, poise and stagger | Built, tested |
+| [Elemental reactions](docs/systems/elemental-reactions.md) | Statuses that react: nine reactions from Scald to Starburst | Built, tested |
+| [Damage model](docs/systems/damage-model.md) | Tunable defence, resistance curves, crits, reaction damage and healing | Built, tested |
+| [Combat](docs/systems/combat.md) | Server-confirmed attack chains, Techniques, Finales and Relays built from data; Slips and Lifts | Built, tested |
+| [Party and swap](docs/systems/party.md) | Four heroes, instant swaps, Relays, Cover and Pile-On | Built, tested |
+| [Movement and camera](docs/systems/movement-and-camera.md) | Sprint, dodge, climb, glide and plunge on server-owned Grip; lock-on camera | Built, tested |
+| [Enemy AI](docs/systems/enemy-ai.md) | Telegraphed attacks, attack tokens, flinching grunts, elites with Composure | Built, tested |
 | [Platform rules](docs/systems/platform-rules.md) | Regional random-item policy, odds disclosure, text filtering | Applied |
 | [Progression, world, quests and more](docs/systems/planned.md) | The rest of the game's systems, specified ahead of build | Designed |
 
