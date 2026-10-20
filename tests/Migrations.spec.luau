@@ -41,6 +41,23 @@ return {
 		TestKit.equal(Migrations.run(data, 3, steps), 9)
 	end,
 
+	["the real 1 to 2 step renames currencies and drops starter pulls"] = function()
+		local data: { [string]: any } = {
+			dataVersion = 1,
+			currencies = { gold = 12, wishCurrency = 480, premium = 3 },
+			inventory = { { itemId = "placeholder", rarity = 3 } },
+			pity = { standard = { sinceLast5 = 4 } },
+		}
+		TestKit.equal(Migrations.run(data, 2), 2)
+		TestKit.equal(data.currencies.glint, 12)
+		TestKit.equal(data.currencies.starglass, 480)
+		TestKit.equal(data.currencies.pureStarglass, 3)
+		TestKit.equal(data.currencies.goldStar, 0)
+		TestKit.equal(data.currencies.gold, nil)
+		TestKit.equal(data.inventory, nil)
+		TestKit.equal(next(data.pity), nil, "old pity is reset with the new banners")
+	end,
+
 	["versions with no step just move forward"] = function()
 		local data: { [string]: any } = { dataVersion = 1 }
 		TestKit.equal(Migrations.run(data, 4, {}), 4)

@@ -4,7 +4,7 @@
 
 local GameConfig = {
 	-- Bump when the saved data shape changes, and add a step in Data/Migrations.
-	DataVersion = 1,
+	DataVersion = 2,
 	-- ProfileStore's DataStore, which also handles autosaving. Saves made before session locking
 	-- used "PlayerData_v1".
 	DataStoreName = "Profiles_v1",
@@ -23,8 +23,10 @@ local GameConfig = {
 	},
 
 	Gacha = {
-		PullCost = 160, -- in wish currency
 		MaxPullsPerRequest = 10,
+		-- Pull history is kept for about six months, as the platform rules ask.
+		HistoryDays = 183,
+		HistoryMaxEntries = 600,
 	},
 
 	Travel = {
@@ -33,16 +35,39 @@ local GameConfig = {
 		PadCooldownSeconds = 2,
 	},
 
-	-- Data every new player starts with.
+	-- Data every new player starts with. See Config/Economy for what each currency is for.
 	DefaultProfile = {
 		currencies = {
-			gold = 0,
-			wishCurrency = 1600, -- earned in game only; see docs/systems/platform-rules.md
-			premium = 0, -- bought with Robux
+			glint = 2000,
+			starglass = 1600, -- earned in game only; see docs/systems/platform-rules.md
+			pureStarglass = 0, -- bought with Robux
+			goldStar = 0,
+			silverStar = 0,
+			moonflakes = 0,
+			guildSeals = 0,
 		},
+		dew = { value = 200, reserve = 0, updatedAt = 0 },
+		guild = { rank = 1, exp = 0 },
+		-- heroId -> { level, exp, ascension, awakening, friendship, talents }, filled in by
+		-- ProgressionService the first time a player joins.
 		roster = {},
-		inventory = {},
+		party = {},
+		weapons = {},
+		trinkets = {},
+		materials = {},
 		pity = {},
+		-- Newest last: { at, banner, itemId, rarity }.
+		pullHistory = {},
+		quests = { active = {}, completed = {}, tracked = "" },
+		settings = {
+			assist = false,
+			textScale = 1,
+			reducedMotion = false,
+			colorblind = "off",
+			musicVolume = 0.7,
+			sfxVolume = 0.8,
+			hudAutoHide = true,
+		},
 		flags = {},
 	},
 }

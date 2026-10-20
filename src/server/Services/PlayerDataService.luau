@@ -16,6 +16,10 @@
 	service falls back to temporary profiles and says so in the output, so play-testing still works.
 
 	Other services use `get` and `waitFor`; neither changed when the storage moved to ProfileStore.
+
+	The player's own view of their profile (currencies, roster, quests, settings) is sent to their
+	client as a snapshot on load and after every change. Services that change the profile call
+	`markChanged(player)`, which batches changes made in the same moment into one message.
 ]]
 
 local Players = game:GetService("Players")
@@ -24,6 +28,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Migrations = require(script.Parent.Parent.Data.Migrations)
+local Net = require(ReplicatedStorage.Shared.Net)
 
 type Profile = {
 	Data: { [string]: any },
@@ -39,6 +44,8 @@ local store: any = nil
 local profiles: { [Player]: Profile } = {}
 local temporary: { [Player]: { [string]: any } } = {}
 local loadedSignals: { [Player]: BindableEvent } = {}
+local changedPending: { [Player]: boolean } = {}
+local changedRemote: RemoteEvent
 
 local function deepCopy<T>(value: T): T
 	if type(value) ~= "table" then
@@ -55,11 +62,28 @@ local function keyFor(player: Player): string
 	return `player_{player.UserId}`
 end
 
+-- What the client may see: everything except the long pull history, of which only the length is
+-- sent (the client asks for pages of it when it opens the history tab).
+local function buildSnapshot(data: { [string]: any }): { [string]: any }
+	local snapshot: { [string]: any } = {}
+	for key, value in data do
+		if key ~= "pullHistory" then
+			snapshot[key] = deepCopy(value)
+		end
+	end
+	snapshot.pullHistoryCount = #(data.pullHistory or {})
+	snapshot.serverTime = workspace:GetServerTimeNow()
+	return snapshot
+end
+
 local function finishLoading(player: Player)
 	local signal = loadedSignals[player]
 	if signal then
 		signal:Fire()
 	end
+	task.defer(function()
+		PlayerDataService.markChanged(player)
+	end)
 end
 
 local function loadProfile(player: Player)
@@ -124,7 +148,35 @@ function PlayerDataService.waitFor(player: Player): { [string]: any }?
 	return PlayerDataService.get(player)
 end
 
+-- The snapshot the player's client sees, or nil before the profile has loaded.
+function PlayerDataService.snapshot(player: Player): { [string]: any }?
+	local data = PlayerDataService.get(player)
+	return data and buildSnapshot(data)
+end
+
+-- Tells the player's client their profile changed. Many calls in one frame send one message.
+function PlayerDataService.markChanged(player: Player)
+	if changedPending[player] or not changedRemote then
+		return
+	end
+	changedPending[player] = true
+	task.defer(function()
+		changedPending[player] = nil
+		if player.Parent ~= Players then
+			return
+		end
+		local snapshot = PlayerDataService.snapshot(player)
+		if snapshot then
+			changedRemote:FireClient(player, snapshot)
+		end
+	end)
+end
+
 function PlayerDataService:Init()
+	changedRemote = Net.event(Net.Names.ProfileChanged)
+	Net.func(Net.Names.GetProfile).OnServerInvoke = function(player: Player)
+		return PlayerDataService.waitFor(player) and PlayerDataService.snapshot(player)
+	end
 	local packages = ServerScriptService:FindFirstChild("ServerPackages")
 	local module = packages and packages:FindFirstChild("ProfileStore")
 	if not module then
@@ -154,6 +206,7 @@ function PlayerDataService:Start()
 	end
 
 	Players.PlayerRemoving:Connect(function(player)
+		changedPending[player] = nil
 		local profile = profiles[player]
 		profiles[player] = nil
 		temporary[player] = nil

@@ -393,6 +393,18 @@ end
 
 -- Movement input relative to the player: X is right and Z is back, so forward is -Z, on every
 -- device. Falls back to the Humanoid's world move direction as seen from the camera.
+-- Menus switch the default movement controls off while they are open.
+function MovementController.setControlsEnabled(enabled: boolean)
+	local active = getControls()
+	if active then
+		if enabled then
+			active:Enable()
+		else
+			active:Disable()
+		end
+	end
+end
+
 local function moveInput(humanoid: Humanoid): Vector3
 	local active = getControls()
 	if active then

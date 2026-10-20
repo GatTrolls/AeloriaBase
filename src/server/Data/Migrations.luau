@@ -17,7 +17,24 @@ export type Step = (data: { [string]: any }) -> ()
 local Migrations = {}
 
 -- [from version] = step that turns a version `from` save into version `from + 1`.
-Migrations.steps = {} :: { [number]: Step }
+Migrations.steps = {
+	-- 1 -> 2: the economy got its real currencies, and pulls moved out of a flat inventory into the
+	-- roster, weapons and pull history. Starter-build placeholder pulls are dropped.
+	[1] = function(data)
+		local old = if type(data.currencies) == "table" then data.currencies else {}
+		data.currencies = {
+			glint = old.gold or 0,
+			starglass = old.wishCurrency or 0,
+			pureStarglass = old.premium or 0,
+			goldStar = 0,
+			silverStar = 0,
+			moonflakes = 0,
+			guildSeals = 0,
+		}
+		data.inventory = nil
+		data.pity = {}
+	end,
+} :: { [number]: Step }
 
 -- Runs every step from the save's version up to `target`. Saves with no version are treated as
 -- version 1. Returns the version the data ended at; a save newer than `target` is left alone.

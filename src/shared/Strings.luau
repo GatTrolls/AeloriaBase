@@ -1,0 +1,195 @@
+--!strict
+--[[
+	Strings
+
+	Every word the interface shows, in one place, keyed so it can be translated and so the game's
+	private content can swap in real names without touching code. Shared.Content.text(key) looks a
+	key up in the private content first, then here.
+
+	Plain English with no story names: this repository stays free of unannounced canon.
+	Use {name} placeholders; Content.format fills them in.
+]]
+
+local Economy = require(script.Parent.Config.Economy)
+
+local Strings: { [string]: string } = {
+	-- Notebook tabs
+	["tab.story"] = "Story",
+	["tab.party"] = "Party",
+	["tab.bag"] = "Bag",
+	["tab.starfall"] = "Starfall",
+	["tab.map"] = "Map",
+	["tab.settings"] = "Settings",
+	["notebook.title"] = "Notebook",
+	["notebook.close"] = "Close",
+
+	-- Starfall
+	["starfall.title"] = "Starfall",
+	["starfall.pull1"] = "Wish x1",
+	["starfall.pull10"] = "Wish x10",
+	["starfall.details"] = "Details",
+	["starfall.odds"] = "Odds",
+	["starfall.history"] = "History",
+	["starfall.pity"] = "Next 5-star in at most {count} wishes",
+	["starfall.pityNow"] = "5-star chance on the next wish: {percent}",
+	["starfall.guarantee"] = "Next 5-star is the featured one",
+	["starfall.fiftyFifty"] = "50/50 on the featured 5-star",
+	["starfall.starPick"] = "Star Pick in {count} wishes",
+	["starfall.starPickReady"] = "Star Pick ready: choose your 5-star",
+	["starfall.exchange"] = "Exchange",
+	["starfall.exchangeFor"] = "Trade {cost} for 1",
+	["starfall.notEnough"] = "Not enough tokens. Exchange some first.",
+	["starfall.skip"] = "Skip",
+	["starfall.tapToContinue"] = "Tap to continue",
+	["starfall.new"] = "NEW",
+	["starfall.duplicate"] = "Duplicate",
+	["starfall.reminder"] = "That was a lot of wishes today. Take a break if you like!",
+	["starfall.restricted"] = "Paid wishing isn't available for your account. Earned currency still works.",
+	["starfall.locked"] = "Starfall opens after the prologue.",
+	["starfall.chooseTarget"] = "Choose your target weapon",
+	["starfall.rarity3"] = "3-star",
+	["starfall.rarity4"] = "4-star",
+	["starfall.rarity5"] = "5-star",
+
+	-- Starfall: banners, pity and results
+	["starfall.kind.featured"] = "Limited character",
+	["starfall.kind.armoury"] = "Weapon banner",
+	["starfall.kind.everlit"] = "Always available",
+	["starfall.kind.firstLight"] = "Beginner banner",
+	["starfall.tagline.featured"] = "One limited 5-star and three 4-stars on rate-up.",
+	["starfall.tagline.armoury"] = "Two featured 5-star weapons. Pick your target.",
+	["starfall.tagline.everlit"] = "The standard 5-stars and every launch 4-star.",
+	["starfall.tagline.firstLight"] = "The Everlit pool at a gentle price. 20 wishes in all.",
+	["starfall.left"] = "{count} wishes left",
+	["starfall.next5"] = "5-star chance on the next wish",
+	["starfall.sinceLast"] = "{count} wishes since your last 5-star",
+	["starfall.toGuarantee"] = "A 5-star is certain within {count} wishes",
+	["starfall.featuredNext"] = "Your next 5-star is the featured one",
+	["starfall.featuredHalf"] = "50/50 on the featured 5-star",
+	["starfall.targetNext"] = "Your next 5-star is your target",
+	["starfall.targetChance"] = "Each 5-star has a {percent} chance to be your target",
+	["starfall.pickTarget"] = "Tap a weapon to make it your target",
+	["starfall.target"] = "TARGET",
+	["starfall.starPickTitle"] = "Star Pick",
+	["starfall.starPickIn"] = "Star Pick in {count} wishes",
+	["starfall.starPickOnce"] = "One free pick of any standard character in {count} wishes",
+	["starfall.starPickUsed"] = "Star Pick used",
+	["starfall.starPickConfirm"] = "Choose {name} as your 5-star?",
+	["starfall.rateUp"] = "Rate-up 4-stars",
+	["starfall.featuredLabel"] = "Featured 5-star",
+	["starfall.pool"] = "Also in the pool",
+	["starfall.detailsTitle"] = "Details",
+	["starfall.rules"] = "How it works",
+	["starfall.ruleBase"] = "Base 5-star chance: {percent}",
+	["starfall.ruleSoft"] = "The chance rises from wish {count}",
+	["starfall.ruleHard"] = "A 5-star is certain by wish {count}",
+	["starfall.ruleFour"] = "A 4-star or better at least every {count} wishes",
+	["starfall.ruleFourBase"] = "Base 4-star chance: {percent}",
+	["starfall.ruleOverall"] = "Overall 5-star rate: {percent}",
+	["starfall.ruleFeatured"] = "{percent} of 5-stars are the featured one; after a miss the next one is",
+	["starfall.ruleTarget"] = "{percent} of 5-stars are your target; after a miss the next one is",
+	["starfall.ruleShared"] = "Pity carries over between banners of this kind",
+	["starfall.ruleNewPlayer"] = "Your first 5-star is certain by wish {count}",
+	["starfall.listOdds"] = "Chance of each result on one wish",
+	["starfall.historyTitle"] = "Wish history",
+	["starfall.historyEmpty"] = "No wishes yet.",
+	["starfall.historyMore"] = "Show more",
+	["starfall.exchangeTitle"] = "Exchange for tokens",
+	["starfall.exchangeCost"] = "Costs {cost} {currency}",
+	["starfall.exchangeHave"] = "You have {count}",
+	["starfall.exchangeUsePure"] = "Spend bought currency",
+	["starfall.exchangeDone"] = "Exchanged for {count} tokens",
+	["starfall.continue"] = "Continue",
+	["starfall.wishResults"] = "Wish results",
+	["starfall.chooseStar"] = "Choose your 5-star",
+	["starfall.error.rate_limited"] = "Slow down a moment.",
+	["starfall.error.busy"] = "One moment...",
+	["starfall.error.not_loaded"] = "Your save is still loading.",
+	["starfall.error.bad_count"] = "That amount is not allowed.",
+	["starfall.error.unknown_banner"] = "That banner is not running.",
+	["starfall.error.banner_used_up"] = "This banner has no wishes left.",
+	["starfall.error.not_ready"] = "Star Pick is not ready yet.",
+	["starfall.error.not_a_choice"] = "That is not one of the choices.",
+	["starfall.error.not_a_target"] = "That weapon cannot be a target.",
+	["starfall.error.network"] = "Could not reach the server. Try again.",
+
+	-- Party / character screen
+	["party.title"] = "Party",
+	["party.level"] = "Lv. {level}",
+	["party.stats"] = "Stats",
+	["party.talents"] = "Talents",
+	["party.weapon"] = "Weapon",
+	["party.trinkets"] = "Trinkets",
+	["party.awakenings"] = "Awakenings",
+	["party.levelUp"] = "Level up",
+	["party.ascend"] = "Ascend",
+	["party.needs"] = "Needs",
+	["party.inParty"] = "In party",
+	["party.addToParty"] = "Add to party",
+	["party.stat.hp"] = "HP",
+	["party.stat.atk"] = "ATK",
+	["party.stat.def"] = "DEF",
+	["party.stat.critRate"] = "Crit rate",
+	["party.stat.critDamage"] = "Crit damage",
+	["party.stat.energy"] = "Energy recharge",
+	["party.stat.synergy"] = "Synergy",
+	["party.talent.basic"] = "Basic attack",
+	["party.talent.technique"] = "Technique",
+	["party.talent.finale"] = "Finale",
+
+	-- Bag
+	["bag.title"] = "Bag",
+	["bag.materials"] = "Materials",
+	["bag.weapons"] = "Weapons",
+	["bag.trinkets"] = "Trinkets",
+	["bag.empty"] = "Nothing here yet.",
+
+	-- Story and quests
+	["quest.title"] = "Quest log",
+	["quest.tracking"] = "Tracking",
+	["quest.track"] = "Track",
+	["quest.completed"] = "Completed",
+	["quest.none"] = "No open quests. Explore!",
+	["quest.updated"] = "Quest updated",
+	["quest.done"] = "Quest complete",
+	["dialogue.next"] = "Next",
+	["dialogue.skip"] = "Skip",
+	["dialogue.auto"] = "Auto",
+
+	-- Settings
+	["settings.title"] = "Settings",
+	["settings.assist"] = "Assist mode",
+	["settings.assistHelp"] = "Wider Slip and Lift windows, auto-targeting and swap hints.",
+	["settings.textScale"] = "Text size",
+	["settings.reducedMotion"] = "Reduced motion",
+	["settings.reducedMotionHelp"] = "Less camera shake and screen flash.",
+	["settings.colorblind"] = "Colour-blind mode",
+	["settings.music"] = "Music",
+	["settings.sfx"] = "Sound effects",
+	["settings.hudAutoHide"] = "Hide HUD out of combat",
+
+	-- Map
+	["map.title"] = "Map",
+	["map.you"] = "You",
+	["map.waystone"] = "Waystone",
+	["map.starwell"] = "Starwell",
+	["map.unknown"] = "Unexplored",
+
+	-- Generic buttons and labels
+	["common.back"] = "Back",
+	["common.confirm"] = "Confirm",
+	["common.cancel"] = "Cancel",
+	["common.ok"] = "OK",
+	["common.close"] = "Close",
+	["common.locked"] = "Locked",
+	["common.max"] = "MAX",
+	["common.new"] = "NEW",
+	["common.equip"] = "Equip",
+	["common.owned"] = "Owned",
+}
+
+for key, name in Economy.GenericNames do
+	Strings[key] = name
+end
+
+return Strings
