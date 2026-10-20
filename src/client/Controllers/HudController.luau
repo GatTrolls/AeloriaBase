@@ -7,10 +7,14 @@
 	  * Party list (right, or top right on phones): each hero's slot, name, element and HP. Tap
 	    or click to swap.
 	  * HP and stamina bars (bottom centre). Stamina only shows while it is not full.
-	  * Skill and burst buttons (bottom right) with cooldowns and burst energy. They work as
+	  * Technique and Finale buttons (bottom right) with the cooldown and Finale energy. They work as
 	    buttons on every platform, and show their key when playing on keyboard.
 	  * Touch only: attack, dodge/sprint and lock-on buttons around the jump button.
-	  * Enemy health bars with their current element aura, above each enemy.
+	  * Party portraits glow gold when that hero's Relay is ready.
+	  * Dodges left, as pips under the HP bar.
+	  * Above each enemy: health, its status icon, a Composure bar on elites (RATTLED when it
+	    breaks) and the attack glint while it winds up: white ring, gold star (Lift it) or red
+	    burst (dodge it).
 	  * A short controls hint for keyboard or gamepad.
 
 	The layout follows the last input the player used, so plugging in a controller or touching a
@@ -23,6 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
+local CombatConfig = require(ReplicatedStorage.Shared.Config.CombatConfig)
 local ElementStyle = require(ReplicatedStorage.Shared.Config.ElementStyle)
 local Heroes = require(ReplicatedStorage.Shared.Config.Heroes)
 
@@ -40,6 +45,12 @@ local PAPER = Color3.fromRGB(245, 242, 235)
 local HP_GREEN = Color3.fromRGB(110, 220, 120)
 local SHIELD = Color3.fromRGB(230, 200, 120)
 local STAMINA = Color3.fromRGB(255, 220, 110)
+local RELAY_GOLD = Color3.fromRGB(255, 205, 80)
+local GLINTS: { [string]: { symbol: string, color: Color3 } } = {
+	normal = { symbol = "◯", color = Color3.fromRGB(255, 250, 240) },
+	gold = { symbol = "★", color = Color3.fromRGB(255, 205, 80) },
+	red = { symbol = "✸", color = Color3.fromRGB(255, 70, 55) },
+}
 
 type Row = { button: TextButton, name: TextLabel, fill: Frame, pip: Frame, stroke: UIStroke }
 
@@ -51,11 +62,12 @@ local shieldFill: Frame
 local hpText: TextLabel
 local staminaBar: Frame
 local staminaFill: Frame
-local skillButton: TextButton
-local skillCooldown: TextLabel
-local burstButton: TextButton
-local burstFill: Frame
-local burstStroke: UIStroke
+local techniqueButton: TextButton
+local techniqueCooldown: TextLabel
+local finaleButton: TextButton
+local finaleFill: Frame
+local finaleStroke: UIStroke
+local dodgePips: { Frame } = {}
 
 local function rgb(values: { number }): Color3
 	return Color3.fromRGB(values[1], values[2], values[3])
@@ -135,8 +147,8 @@ local hint: TextLabel
 local inputMode: InputMode = "keyboard"
 
 local HINTS: { [InputMode]: string } = {
-	keyboard = "Click attack · E skill · Q burst · Shift dodge, hold to sprint · Space jump/glide · 1-4 swap · T lock-on · Alt cursor",
-	gamepad = "X attack · Y skill · R1 burst · B dodge, hold to sprint · A jump/glide · D-pad swap · R3 lock-on",
+	keyboard = "Click attack, hold to charge · E Technique · Q Finale · Shift or right click dodge, hold to sprint · Space jump/glide · 1-4 swap · T lock-on · Alt cursor",
+	gamepad = "X attack, hold to charge · R1 Technique · Y Finale · B dodge, hold to sprint · A jump/glide · D-pad swap · R3 lock-on",
 	touch = "",
 }
 
@@ -217,6 +229,29 @@ local function buildBars()
 	}, gui)
 	staminaBar, staminaFill =
 		bar(gui, UDim2.fromOffset(200, 6), UDim2.new(0.5, 0, 1, -72), Vector2.new(0.5, 1), STAMINA)
+
+	local pips = make("Frame", {
+		Name = "Dodges",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, -20),
+		Size = UDim2.fromOffset(60, 8),
+		BackgroundTransparency = 1,
+	}, gui)
+	make("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		Padding = UDim.new(0, 6),
+	}, pips)
+	for index = 1, CombatConfig.Defense.DodgeCharges do
+		local pip = make("Frame", {
+			Name = "Dodge" .. index,
+			Size = UDim2.fromOffset(8, 8),
+			BackgroundColor3 = PAPER,
+			BorderSizePixel = 0,
+		}, pips)
+		corner(pip)
+		dodgePips[index] = pip
+	end
 end
 
 -- A button that reports press and release, for actions that care about holding.
@@ -235,29 +270,29 @@ local function holdButton(name: string, label: string, color: Color3, onHeld: (b
 end
 
 local function buildAbilityButtons()
-	skillButton = roundButton(gui, "Skill", 64, UDim2.new(), "", Color3.new(1, 1, 1))
-	skillCooldown = make("TextLabel", {
+	techniqueButton = roundButton(gui, "Technique", 64, UDim2.new(), "", Color3.new(1, 1, 1))
+	techniqueCooldown = make("TextLabel", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		TextColor3 = PAPER,
 		Font = Enum.Font.GothamBlack,
 		TextSize = 22,
 		Text = "",
-	}, skillButton)
-	skillButton.Activated:Connect(CombatController.skill)
+	}, techniqueButton)
+	techniqueButton.Activated:Connect(CombatController.technique)
 
-	burstButton = roundButton(gui, "Burst", 80, UDim2.new(), "", Color3.new(1, 1, 1))
-	burstStroke = burstButton:FindFirstChildOfClass("UIStroke") :: UIStroke
-	burstButton.ClipsDescendants = true
-	burstFill = make("Frame", {
+	finaleButton = roundButton(gui, "Finale", 80, UDim2.new(), "", Color3.new(1, 1, 1))
+	finaleStroke = finaleButton:FindFirstChildOfClass("UIStroke") :: UIStroke
+	finaleButton.ClipsDescendants = true
+	finaleFill = make("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
 		Position = UDim2.fromScale(0, 1),
 		Size = UDim2.fromScale(1, 0),
 		BackgroundTransparency = 0.55,
 		BorderSizePixel = 0,
 		ZIndex = 0,
-	}, burstButton)
-	burstButton.Activated:Connect(CombatController.burst)
+	}, finaleButton)
+	finaleButton.Activated:Connect(CombatController.finale)
 
 	local attack = holdButton("Attack", "Attack", PAPER, CombatController.setAttackHeld)
 	local dodge = holdButton("Dodge", "Dodge", STAMINA, MovementController.setDodgeHeld)
@@ -300,7 +335,7 @@ local function applyLayout()
 	partyList.AnchorPoint = if touch then Vector2.new(1, 0) else Vector2.new(1, 0.5)
 	partyList.Position = if touch then UDim2.new(1, -10, 0, 4) else UDim2.new(1, -14, 0.42, 0)
 
-	-- Narrower bars on phones so they stay clear of the skill button.
+	-- Narrower bars on phones so they stay clear of the Technique button.
 	local barWidth = if touch then 220 else 340
 	hpBack.Size = UDim2.fromOffset(barWidth, 14)
 	hpText.Size = UDim2.fromOffset(barWidth, 16)
@@ -309,23 +344,23 @@ local function applyLayout()
 	if touch then
 		local attack, dodge, lock = touchButtons[1], touchButtons[2], touchButtons[3]
 		place(attack, 80, -150, -75)
-		place(skillButton, 56, -235, -55)
-		place(burstButton, 64, -215, -135)
+		place(techniqueButton, 56, -235, -55)
+		place(finaleButton, 64, -215, -135)
 		place(dodge, 52, -60, -140)
 		place(lock, 40, -290, -130)
 		attack.TextSize = 18
 		dodge.TextSize = 12
 		lock.TextSize = 11
 	else
-		place(skillButton, 64, -150, -60)
-		place(burstButton, 80, -66, -76)
+		place(techniqueButton, 64, -150, -60)
+		place(finaleButton, 80, -66, -76)
 	end
 	for _, button in touchButtons do
 		button.Visible = touch
 	end
 
-	skillButton.Text = if inputMode == "keyboard" then "E" else ""
-	burstButton.Text = if inputMode == "keyboard" then "Q" else ""
+	techniqueButton.Text = if inputMode == "keyboard" then "E" else ""
+	finaleButton.Text = if inputMode == "keyboard" then "Q" else ""
 	hint.Text = HINTS[inputMode]
 	hint.Visible = not touch
 end
@@ -371,7 +406,9 @@ local function refreshParty()
 			row.pip.BackgroundColor3 = rgb(ElementStyle.Elements[kit.element] or ElementStyle.Physical)
 			row.fill.Size = UDim2.fromScale(math.clamp(member.hp / member.maxHp, 0, 1), 1)
 			row.button.BackgroundTransparency = if active then 0.1 else 0.45
-			row.stroke.Thickness = if active then 2 else 0
+			local relay = PartyController.relayReady(slot)
+			row.stroke.Color = if relay then RELAY_GOLD else PAPER
+			row.stroke.Thickness = if active then 2 elseif relay then 1.5 + math.sin(now * 5) * 0.5 else 0
 			row.name.TextTransparency = if member.hp <= 0
 				then 0.6
 				elseif now < snapshot.swapReadyAt and not active then 0.35
@@ -395,21 +432,26 @@ local function refreshAbilities()
 	local now = PartyController.now()
 	local color = rgb(ElementStyle.Elements[kit.element] or ElementStyle.Physical)
 
-	local skillLeft = state.skillReadyAt - now
-	skillCooldown.Text = if skillLeft > 0 then string.format("%.1f", skillLeft) else ""
-	skillButton.BackgroundTransparency = if skillLeft > 0 then 0.55 else 0.15
-	skillButton.TextTransparency = if skillLeft > 0 then 1 else 0
-	local skillStroke = skillButton:FindFirstChildOfClass("UIStroke")
-	if skillStroke then
-		skillStroke.Color = color
+	local techniqueLeft = state.techniqueReadyAt - now
+	techniqueCooldown.Text = if techniqueLeft > 0 then string.format("%.1f", techniqueLeft) else ""
+	techniqueButton.BackgroundTransparency = if techniqueLeft > 0 then 0.55 else 0.15
+	techniqueButton.TextTransparency = if techniqueLeft > 0 then 1 else 0
+	local techniqueStroke = techniqueButton:FindFirstChildOfClass("UIStroke")
+	if techniqueStroke then
+		techniqueStroke.Color = color
 	end
 
-	local fraction = math.clamp(state.energy / kit.burst.energyCost, 0, 1)
-	burstFill.Size = UDim2.fromScale(1, fraction)
-	burstFill.BackgroundColor3 = color
-	local ready = fraction >= 1 and now >= state.burstReadyAt
-	burstStroke.Color = if ready then color else Color3.fromRGB(120, 120, 130)
-	burstStroke.Thickness = if ready then 3.5 + math.sin(now * 6) else 2
+	local fraction = math.clamp(state.energy / kit.finale.energyCost, 0, 1)
+	finaleFill.Size = UDim2.fromScale(1, fraction)
+	finaleFill.BackgroundColor3 = color
+	local ready = fraction >= 1 and now >= state.finaleReadyAt
+	finaleStroke.Color = if ready then color else Color3.fromRGB(120, 120, 130)
+	finaleStroke.Thickness = if ready then 3.5 + math.sin(now * 6) else 2
+
+	local charges = MovementController.getDodgeCharges()
+	for index, pip in dodgePips do
+		pip.BackgroundTransparency = if index <= charges then 0.1 else 0.75
+	end
 
 	local stamina, max = MovementController.getStamina()
 	staminaBar.Visible = stamina < max - 0.5
@@ -417,22 +459,34 @@ local function refreshAbilities()
 	staminaFill.BackgroundColor3 = if stamina < 40 then Color3.fromRGB(255, 120, 90) else STAMINA
 end
 
--- Health bar and aura pip above each enemy, driven by the attributes EnemyService publishes.
+-- Health, status, Composure and the attack glint above each enemy, driven by the attributes
+-- EnemyService publishes.
 local function attachEnemyBar(model: Instance)
 	local root = model:FindFirstChild("HumanoidRootPart") or model:WaitForChild("HumanoidRootPart", 5)
-	if not root or not model:IsA("Model") then
+	if not root or not model:IsA("Model") or not root:IsA("BasePart") then
 		return
 	end
+	local elite = model:GetAttribute("MaxComposure") ~= nil
 	local billboard = make("BillboardGui", {
 		Name = "EnemyBar",
 		Adornee = root,
-		Size = UDim2.fromOffset(110, 26),
-		StudsOffset = Vector3.new(0, 5.4, 0),
+		Size = UDim2.fromOffset(if elite then 160 else 110, if elite then 68 else 52),
+		StudsOffset = Vector3.new(0, root.Size.Y * 2.1 + 1.4, 0),
 		MaxDistance = 90,
 		AlwaysOnTop = true,
 	}, root)
+	local glint = make("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 24),
+		BackgroundTransparency = 1,
+		Font = Enum.Font.GothamBlack,
+		TextScaled = true,
+		TextStrokeTransparency = 0.3,
+		Text = "",
+		Visible = false,
+	}, billboard)
 	local name = make("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 12),
+		Position = UDim2.fromOffset(0, 26),
 		BackgroundTransparency = 1,
 		TextColor3 = PAPER,
 		TextStrokeTransparency = 0.4,
@@ -443,34 +497,67 @@ local function attachEnemyBar(model: Instance)
 	local _, fill = bar(
 		billboard,
 		UDim2.new(1, 0, 0, 7),
-		UDim2.fromOffset(0, 15),
+		UDim2.fromOffset(0, 40),
 		Vector2.zero,
 		Color3.fromRGB(235, 80, 70)
 	)
-	local aura = make("Frame", {
-		Size = UDim2.fromOffset(10, 10),
-		Position = UDim2.new(1, 4, 0, 13),
-		BorderSizePixel = 0,
-		Visible = false,
+	local status = make("TextLabel", {
+		Size = UDim2.fromOffset(16, 16),
+		Position = UDim2.new(1, 3, 0, 36),
+		BackgroundTransparency = 1,
+		TextScaled = true,
+		Text = "",
 	}, billboard)
-	corner(aura)
+	local composureFill: Frame? = nil
+	local rattled: TextLabel? = nil
+	if elite then
+		local _, composure =
+			bar(billboard, UDim2.new(1, 0, 0, 5), UDim2.fromOffset(0, 50), Vector2.zero, RELAY_GOLD)
+		composureFill = composure
+		rattled = make("TextLabel", {
+			Size = UDim2.new(1, 0, 0, 10),
+			Position = UDim2.fromOffset(0, 57),
+			BackgroundTransparency = 1,
+			TextColor3 = RELAY_GOLD,
+			TextStrokeTransparency = 0.3,
+			Font = Enum.Font.GothamBlack,
+			TextSize = 10,
+			Text = "RATTLED",
+			Visible = false,
+		}, billboard)
+	end
 
 	local function update()
 		local health = model:GetAttribute("Health") :: number? or 0
 		local maxHealth = model:GetAttribute("MaxHealth") :: number? or 1
 		fill.Size = UDim2.fromScale(math.clamp(health / maxHealth, 0, 1), 1)
-		local element = model:GetAttribute("Aura")
+		local element = model:GetAttribute("Status")
+		local icon = type(element) == "string" and ElementStyle.Icons[element]
+		status.Text = if icon then icon else ""
 		local values = type(element) == "string" and ElementStyle.Elements[element]
-		aura.Visible = values ~= nil and values ~= false
 		if values then
-			aura.BackgroundColor3 = rgb(values)
+			status.TextColor3 = rgb(values)
 		end
 		local frozen = model:GetAttribute("Frozen") == true
-		name.TextColor3 = if frozen then Color3.fromRGB(170, 240, 255) else PAPER
+		local locked = model:GetAttribute("Locked") == true
+		name.TextColor3 = if locked or frozen then Color3.fromRGB(170, 240, 255) else PAPER
+		local telegraph = model:GetAttribute("Telegraph")
+		local style = type(telegraph) == "string" and GLINTS[telegraph]
+		glint.Visible = style ~= nil and style ~= false
+		if style then
+			glint.Text = style.symbol
+			glint.TextColor3 = style.color
+		end
+		if composureFill and rattled then
+			local composure = model:GetAttribute("Composure") :: number? or 0
+			local max = model:GetAttribute("MaxComposure") :: number? or 1
+			composureFill.Size = UDim2.fromScale(math.clamp(composure / max, 0, 1), 1)
+			rattled.Visible = model:GetAttribute("Rattled") == true
+		end
 	end
-	model:GetAttributeChangedSignal("Health"):Connect(update)
-	model:GetAttributeChangedSignal("Aura"):Connect(update)
-	model:GetAttributeChangedSignal("Frozen"):Connect(update)
+	for _, attribute in { "Health", "Status", "Frozen", "Locked", "Telegraph", "Composure", "Rattled" } do
+		model:GetAttributeChangedSignal(attribute):Connect(update)
+	end
 	update()
 end
 

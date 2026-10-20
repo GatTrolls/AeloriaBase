@@ -3,12 +3,15 @@
 	PartyService
 
 	Owns each player's party: who is on the field, HP and shields per hero, and every hero's
-	cooldowns and energy (Shared.Combat.Ability). The Humanoid mirrors the active hero's HP, and
-	the active hero's weapon is attached to the character so everyone can see who is fighting.
+	cooldowns, Finale energy and infusions (Shared.Combat.Ability). The Humanoid mirrors the
+	active hero's HP, and the active hero's weapon is attached to the character so everyone can
+	see who is fighting.
 
-	Swaps go through Shared.Combat.Party, so the cooldown and "can't swap to a downed hero" rules
-	are the same ones the tests cover. When the active hero goes down the next one takes the field;
-	when the whole party is down the character respawns with everyone restored.
+	Swaps go through Shared.Combat.Party, so the cooldown, Relay and "can't swap to a downed hero"
+	rules are the same ones the tests cover. CombatService decides when a swap may ignore the
+	cooldown (Cover and Pile-On) and runs Relays, through `setSwapPolicy` and `onSwapped`. When the
+	active hero goes down the next one takes the field; when the whole party is down the character
+	respawns with everyone restored.
 ]]
 
 local Players = game:GetService("Players")
@@ -29,12 +32,28 @@ export type Record = {
 	abilities: { [string]: Ability.State },
 }
 
+export type SwapKind = "swap" | "cover" | "pileon" | "forced"
+
+export type SwapInfo = {
+	fromHeroId: string,
+	toHeroId: string,
+	relay: boolean,
+	kind: SwapKind,
+}
+
+-- Decides whether a swap may ignore the cooldown, and what kind of swap it is.
+export type SwapPolicy = (player: Player, slot: number, now: number) -> SwapKind
+
 local PartyService = {}
 
 local records: { [Player]: Record } = {}
 local swapLimiter = RateLimit.new(CombatConfig.RateLimits.PartySwap)
 local stateRemote: RemoteEvent
 local feedbackRemote: RemoteEvent
+local swapPolicy: SwapPolicy = function(_player, _slot, _now)
+	return "swap"
+end
+local swapListeners: { (Player, SwapInfo) -> () } = {}
 
 local function now(): number
 	return Workspace:GetServerTimeNow()
@@ -89,13 +108,16 @@ local function attachWeapon(character: Model, kit: Heroes.Kit)
 	local metal = Color3.fromRGB(70, 70, 80)
 	local grip = CFrame.new(0, -hand.Size.Y / 2, 0)
 
-	if kit.weapon == "catalyst" then
+	if kit.weapon == "focus" then
 		local orb = weaponPart(model, "Orb", Vector3.new(1.1, 1.1, 1.1), tint, Enum.Material.Neon)
 		orb.Shape = Enum.PartType.Ball
 		weld(orb, hand, grip * CFrame.new(0.9, 0.6, -0.6))
+	elseif kit.weapon == "bow" then
+		local bow = weaponPart(model, "Bow", Vector3.new(0.2, 4.2, 0.35), tint, Enum.Material.Neon)
+		weld(bow, hand, grip * CFrame.new(0, 0, -0.3))
 	else
-		local length = if kit.weapon == "polearm" then 7 elseif kit.weapon == "claymore" then 5 else 3.8
-		local width = if kit.weapon == "claymore" then 0.9 elseif kit.weapon == "polearm" then 0.3 else 0.45
+		local length = if kit.weapon == "lance" then 7 elseif kit.weapon == "greatsword" then 5 else 3.8
+		local width = if kit.weapon == "greatsword" then 1 elseif kit.weapon == "lance" then 0.3 else 0.45
 		local handle = weaponPart(model, "Handle", Vector3.new(0.3, 0.3, 1.1), metal)
 		weld(handle, hand, grip * CFrame.new(0, -0.2, 0))
 		local blade = weaponPart(model, "Blade", Vector3.new(0.15, width, length), tint, Enum.Material.Neon)
@@ -128,9 +150,11 @@ local function snapshot(record: Record)
 			maxHp = member.maxHp,
 			shield = member.shield,
 			energy = ability.energy,
-			energyCost = kit.burst.energyCost,
-			skillReadyAt = ability.skillReadyAt,
-			burstReadyAt = ability.burstReadyAt,
+			energyCost = kit.finale.energyCost,
+			techniqueReadyAt = ability.techniqueReadyAt,
+			finaleReadyAt = ability.finaleReadyAt,
+			benchedSince = member.benchedSince,
+			infusedHits = ability.infusedHits,
 		}
 	end
 	return {
@@ -161,45 +185,112 @@ function PartyService.active(player: Player): (Heroes.Kit?, Ability.State?, Part
 	return Heroes[member.heroId], record.abilities[member.heroId], member
 end
 
--- Gives energy to the active hero and a share to everyone else.
+function PartyService.setSwapPolicy(policy: SwapPolicy)
+	swapPolicy = policy
+end
+
+function PartyService.onSwapped(listener: (Player, SwapInfo) -> ())
+	table.insert(swapListeners, listener)
+end
+
+-- Gives Finale energy to the active hero and a share to everyone on the bench.
 function PartyService.addEnergy(player: Player, amount: number)
 	local record = records[player]
 	if not record or amount <= 0 then
 		return
 	end
 	for slot, member in record.party.members do
-		local share = if slot == record.party.active then 1 else CombatConfig.Combat.OffFieldEnergyShare
+		local share = if slot == record.party.active then 1 else CombatConfig.Combat.BenchEnergyShare
 		Ability.addEnergy(record.abilities[member.heroId], Heroes[member.heroId], amount * share)
 	end
 end
 
-function PartyService.addShield(player: Player)
+-- Gives Finale energy to one hero only, wherever they are (Starburst feeds the main character).
+function PartyService.addEnergyTo(player: Player, heroId: string, amount: number)
+	local record = records[player]
+	local ability = record and record.abilities[heroId]
+	if ability then
+		Ability.addEnergy(ability, Heroes[heroId], amount)
+	end
+end
+
+local function syncHumanoid(player: Player, record: Record)
+	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		local member = Party.activeMember(record.party)
+		humanoid.Health = math.max(member.hp, 0.01)
+	end
+end
+
+-- Heals heroes: "active", "party" (everyone standing), or a hero by id. `amountFor` gets each
+-- hero's member record and returns how much to heal. Returns the total HP restored.
+function PartyService.heal(player: Player, target: string, amountFor: (Party.Member) -> number): number
+	local record = records[player]
+	if not record then
+		return 0
+	end
+	local restored = 0
+	for slot, member in record.party.members do
+		local chosen = (target == "party")
+			or (target == "active" and slot == record.party.active)
+			or (target == member.heroId)
+		if chosen then
+			restored += Party.heal(member, amountFor(member))
+		end
+	end
+	if restored > 0 then
+		syncHumanoid(player, record)
+		PartyService.pushState(player)
+	end
+	return restored
+end
+
+function PartyService.addShield(
+	player: Player,
+	target: string,
+	amountFor: (Party.Member) -> number,
+	element: string?
+)
 	local record = records[player]
 	if not record then
 		return
 	end
-	local member = Party.activeMember(record.party)
-	member.shield = math.max(member.shield, member.maxHp * CombatConfig.Combat.ShieldShareOfMaxHp)
+	for slot, member in record.party.members do
+		if target == "party" or (target == "active" and slot == record.party.active) then
+			Party.addShield(member, amountFor(member), element)
+		end
+	end
+	PartyService.pushState(player)
 end
 
 -- Damages the active hero. Handles a hero going down and a full party wipe. Returns HP lost.
-function PartyService.damage(player: Player, amount: number): number
+function PartyService.damage(player: Player, amount: number, element: string?): number
 	local record = records[player]
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if not record or not humanoid or humanoid.Health <= 0 then
 		return 0
 	end
-	local taken, down = Party.damageActive(record.party, amount)
+	local taken, down = Party.damageActive(record.party, amount, element)
 	if down then
+		local outgoing = Party.activeMember(record.party).heroId
 		if Party.forceNext(record.party, now()) then
 			applyToCharacter(player, record)
-			feedbackRemote:FireAllClients({ kind = "swap", attacker = player, forced = true })
+			local info: SwapInfo = {
+				fromHeroId = outgoing,
+				toHeroId = Party.activeMember(record.party).heroId,
+				relay = false,
+				kind = "forced",
+			}
+			feedbackRemote:FireAllClients({ kind = "swap", attacker = player, swap = "forced" })
+			for _, listener in swapListeners do
+				task.spawn(listener, player, info)
+			end
 		else
 			humanoid.Health = 0
 		end
 	else
-		humanoid.Health = math.max(Party.activeMember(record.party).hp, 0.01)
+		syncHumanoid(player, record)
 	end
 	PartyService.pushState(player)
 	return taken
@@ -210,7 +301,8 @@ local function onSwap(player: Player, slot: unknown)
 	if not record or type(slot) ~= "number" or slot ~= math.floor(slot) then
 		return
 	end
-	if not RateLimit.allow(swapLimiter, player, now()) then
+	local t = now()
+	if not RateLimit.allow(swapLimiter, player, t) then
 		return
 	end
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
@@ -218,11 +310,23 @@ local function onSwap(player: Player, slot: unknown)
 		return
 	end
 	local outgoing = Party.activeMember(record.party).heroId
-	local ok = Party.trySwap(record.party, slot, now(), GameConfig.Party.SwapCooldownSeconds)
+	local kind = swapPolicy(player, slot, t)
+	local ok, _, relay =
+		Party.trySwap(record.party, slot, t, GameConfig.Party.SwapCooldownSeconds, kind ~= "swap")
 	if ok then
 		Ability.cancelRecovery(record.abilities[outgoing])
 		applyToCharacter(player, record)
-		feedbackRemote:FireAllClients({ kind = "swap", attacker = player })
+		local info: SwapInfo = {
+			fromHeroId = outgoing,
+			toHeroId = Party.activeMember(record.party).heroId,
+			-- A Cover always counters with the incoming hero's Relay.
+			relay = relay or kind == "cover",
+			kind = kind,
+		}
+		feedbackRemote:FireAllClients({ kind = "swap", attacker = player, swap = kind })
+		for _, listener in swapListeners do
+			task.spawn(listener, player, info)
+		end
 	end
 	-- Always answer, so a refused swap corrects the client's prediction.
 	PartyService.pushState(player)

@@ -31,11 +31,11 @@ return {
 		)
 	end,
 
-	["a dodge fails without enough stamina and spends nothing"] = function()
+	["a climb leap fails without enough grip and spends nothing"] = function()
 		local state = Stamina.new(0)
-		state.value = Config.DodgeCost - 1
-		TestKit.equal(Stamina.spend(state, Config.DodgeCost, 0), false)
-		TestKit.equal(state.value, Config.DodgeCost - 1)
+		state.value = Config.ClimbLeapCost - 1
+		TestKit.equal(Stamina.spend(state, Config.ClimbLeapCost, 0), false)
+		TestKit.equal(state.value, Config.ClimbLeapCost - 1)
 	end,
 
 	["regeneration waits for the delay after a spend"] = function()

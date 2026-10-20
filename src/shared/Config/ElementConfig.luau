@@ -1,88 +1,113 @@
 --!strict
--- Element and reaction data. Ids are engine-level and generic; display names, colours and
--- lore come from the story bible later and live in a separate presentation table.
+-- Elements, the statuses they leave and the reactions between them. Shared by the rules engine
+-- (Shared.Elements), the server and the tests. Colours and on-screen labels live in ElementStyle.
 
-export type ReactionKind = "amplify" | "transform" | "status" | "shield"
+export type ReactionKind =
+	"amplify" -- multiplies the hit that triggered it
+	| "explode" -- area damage around the target, knocks small enemies back
+	| "chain" -- damage that jumps between Wet enemies near the target over a few seconds
+	| "lock" -- freezes the target; the next heavy hit shatters it for bonus damage
+	| "weaken" -- lowers the target's defence for a while
+	| "spread" -- copies the status to nearby enemies, pulls small ones in, cuts resistance
+	| "geode" -- leaves a crystal that shields whoever walks into it
+	| "starburst" -- a starlight blast of both elements that clears the status
 
 export type ReactionDef = {
 	id: string,
 	kind: ReactionKind,
-	-- amplify: multiplies the triggering hit. transform: bonus damage scale.
-	-- status and shield: unused (1).
-	multiplier: number,
-	-- How many aura units each trigger unit removes.
-	consume: number,
-	-- status reactions: seconds per trigger unit the status lasts.
-	statusSecondsPerUnit: number?,
-	-- Sweep-style reactions copy the aura element to nearby targets.
-	spreads: boolean?,
+	multiplier: number?, -- amplify
+	scale: number?, -- reaction damage scale (see Damage.reactionDamage)
+	radius: number?,
+	seconds: number?, -- how long a lasting effect stays
+	ticks: number?, -- chain: number of damage pulses
+	defenseCut: number?, -- weaken
+	resistanceCut: number?, -- spread
+	shatterScale: number?, -- lock: bonus damage scale when shattered
+	cooldownSeconds: number?, -- starburst: once per enemy every this many seconds
+	energy: number?, -- starburst: Finale energy for the caster
+}
+
+export type StatusDef = {
+	id: string,
+	seconds: number,
 }
 
 local ElementConfig = {
-	Elements = table.freeze({ "Wind", "Earth", "Fire", "Water", "Ice", "Lightning", "Light" }),
+	Elements = table.freeze({ "Flame", "Tide", "Frost", "Volt", "Gale", "Terra", "Astral" }),
 
-	-- Elements that react but never stay on a target as an aura.
-	NonAttaching = table.freeze({ Wind = true, Earth = true, Light = true }),
+	-- Four elements leave a status on an enemy. The other three never stay; they react with
+	-- whatever status is already there.
+	Statuses = table.freeze({
+		Flame = table.freeze({ id = "Burning", seconds = 8 }),
+		Tide = table.freeze({ id = "Wet", seconds = 10 }),
+		Frost = table.freeze({ id = "Chilled", seconds = 8 }),
+		Volt = table.freeze({ id = "Charged", seconds = 8 }),
+	}) :: { [string]: StatusDef },
 
-	-- An aura of N units lasts AuraBaseSeconds + AuraSecondsPerUnit * N, decaying linearly.
-	AuraBaseSeconds = 6,
-	AuraSecondsPerUnit = 3,
-	-- Share of the applied units that becomes aura when nothing reacts.
-	AuraTax = 0.8,
+	-- Basic attacks apply their element at most once every this many seconds per enemy.
+	-- Techniques, Finales and Relays always apply.
+	BasicApplySeconds = 2.5,
 
-	-- Internal cooldown: a source applies its element on the first hit, then every
-	-- IcdHits-th hit, and again whenever IcdSeconds have passed.
-	IcdHits = 3,
-	IcdSeconds = 2.5,
+	-- Burning deals small damage once a second for as long as it lasts.
+	BurningTickSeconds = 1,
+	BurningScale = 0.08,
+	-- Chilled enemies move this much slower.
+	ChilledSlow = 0.15,
 
-	-- Keyed "Trigger>Aura". Order matters: Water on Fire is not the same as Fire on Water.
+	-- Reactions between two statuses, keyed by the two element names in alphabetical order.
 	Reactions = {} :: { [string]: ReactionDef },
+	-- Reactions for the elements that never stay, whatever status they meet.
+	TriggerReactions = {} :: { [string]: ReactionDef },
 }
 
-local function add(trigger: string, aura: string, def: ReactionDef)
-	ElementConfig.Reactions[`{trigger}>{aura}`] = table.freeze(def)
+local function pair(a: string, b: string, def: ReactionDef)
+	local key = if a < b then `{a}+{b}` else `{b}+{a}`
+	ElementConfig.Reactions[key] = table.freeze(def)
 end
 
--- Amplifying: the strong direction doubles the hit and eats more aura.
-add("Water", "Fire", { id = "Steam", kind = "amplify", multiplier = 2.0, consume = 2 })
-add("Fire", "Water", { id = "Steam", kind = "amplify", multiplier = 1.5, consume = 0.5 })
-add("Fire", "Ice", { id = "Melt", kind = "amplify", multiplier = 2.0, consume = 2 })
-add("Ice", "Fire", { id = "Melt", kind = "amplify", multiplier = 1.5, consume = 0.5 })
+pair("Flame", "Tide", { id = "Scald", kind = "amplify", multiplier = 1.5 })
+pair("Flame", "Frost", { id = "Thaw", kind = "amplify", multiplier = 1.75 })
+pair("Flame", "Volt", { id = "Flashpoint", kind = "explode", scale = 1.6, radius = 7 })
+pair("Tide", "Volt", { id = "Conduct", kind = "chain", scale = 0.35, radius = 9, ticks = 4, seconds = 4 })
+pair("Frost", "Tide", { id = "Lock", kind = "lock", seconds = 3, shatterScale = 1.5 })
+pair("Frost", "Volt", { id = "Brittle", kind = "weaken", defenseCut = 0.25, seconds = 8 })
 
--- Transformative: separate bonus damage that scales with the attacker's level.
-for _, pair in { { "Fire", "Lightning" }, { "Lightning", "Fire" } } do
-	add(pair[1], pair[2], { id = "Overload", kind = "transform", multiplier = 2.0, consume = 1 })
-end
-for _, pair in { { "Lightning", "Water" }, { "Water", "Lightning" } } do
-	add(pair[1], pair[2], { id = "Conduct", kind = "transform", multiplier = 1.2, consume = 1 })
-end
-
--- Status: change what the target can do instead of dealing extra damage.
-for _, pair in { { "Ice", "Water" }, { "Water", "Ice" } } do
-	add(
-		pair[1],
-		pair[2],
-		{ id = "Freeze", kind = "status", multiplier = 1, consume = 1, statusSecondsPerUnit = 2 }
-	)
-end
-for _, pair in { { "Lightning", "Ice" }, { "Ice", "Lightning" } } do
-	add(
-		pair[1],
-		pair[2],
-		{ id = "Brittle", kind = "status", multiplier = 1, consume = 1, statusSecondsPerUnit = 4 }
-	)
-end
-
--- Wind and Earth never stick; they react with whatever aura is there.
-for _, aura in { "Fire", "Water", "Lightning", "Ice" } do
-	-- Sweep copies the aura to nearby enemies.
-	add("Wind", aura, { id = "Sweep", kind = "transform", multiplier = 0.6, consume = 0.5, spreads = true })
-	-- Shield gives the attacker a shield of the aura's element.
-	add("Earth", aura, { id = "Shield", kind = "shield", multiplier = 1, consume = 0.5 })
-	-- Light reacts with everything. It belongs to the main character alone at launch.
-	add("Light", aura, { id = "Radiance", kind = "transform", multiplier = 2.5, consume = 1 })
-end
+ElementConfig.TriggerReactions.Gale = table.freeze({
+	id = "Sweep",
+	kind = "spread",
+	scale = 0.5,
+	radius = 8,
+	resistanceCut = 0.2,
+	seconds = 8,
+} :: ReactionDef)
+ElementConfig.TriggerReactions.Terra = table.freeze({
+	id = "Geode",
+	kind = "geode",
+	seconds = 10,
+} :: ReactionDef)
+ElementConfig.TriggerReactions.Astral = table.freeze({
+	id = "Starburst",
+	kind = "starburst",
+	scale = 2,
+	radius = 4,
+	cooldownSeconds = 2,
+	energy = 4,
+} :: ReactionDef)
 
 table.freeze(ElementConfig.Reactions)
+table.freeze(ElementConfig.TriggerReactions)
+
+-- The reaction between an incoming element and the status already on the target, if any.
+function ElementConfig.reactionFor(element: string, status: string): ReactionDef?
+	if element == status then
+		return nil
+	end
+	local trigger = ElementConfig.TriggerReactions[element]
+	if trigger then
+		return trigger
+	end
+	local key = if element < status then `{element}+{status}` else `{status}+{element}`
+	return ElementConfig.Reactions[key]
+end
 
 return table.freeze(ElementConfig)
