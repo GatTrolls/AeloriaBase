@@ -111,7 +111,18 @@ local function build(): Folder
 	spawn.Duration = 0
 	spawn.Material = Enum.Material.SmoothPlastic
 	spawn.Color = Color3.fromRGB(235, 225, 200)
+	spawn:SetAttribute("PointId", "arena_spawn")
+	CollectionService:AddTag(spawn, "TravelPoint")
 	spawn.Parent = arena
+
+	-- A travel pad to the level blockout built in the place (see TravelService).
+	local pad = part(arena, "BlockoutPad", Vector3.new(8, 0.6, 8), CFrame.new(18, 0.4, -70), {
+		Material = Enum.Material.Neon,
+		Color = Color3.fromRGB(120, 200, 255),
+	})
+	pad:SetAttribute("Destination", "blockout_start")
+	pad:SetAttribute("Label", "Level blockout")
+	CollectionService:AddTag(pad, "TravelPad")
 
 	local spawns = Instance.new("Folder")
 	spawns.Name = "EnemySpawns"

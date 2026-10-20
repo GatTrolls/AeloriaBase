@@ -27,6 +27,12 @@ local GameConfig = {
 		MaxPullsPerRequest = 10,
 	},
 
+	Travel = {
+		-- After using a travel pad, a player can't use another for this long, so arriving on a
+		-- pad doesn't bounce them straight back.
+		PadCooldownSeconds = 2,
+	},
+
 	-- Data every new player starts with.
 	DefaultProfile = {
 		currencies = {
