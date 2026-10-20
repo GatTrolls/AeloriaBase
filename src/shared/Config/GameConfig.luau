@@ -22,7 +22,7 @@ local GameConfig = {
 	DefaultProfile = {
 		currencies = {
 			gold = 0,
-			wishCurrency = 1600, -- earned in game only; see docs/operations/compliance.md
+			wishCurrency = 1600, -- earned in game only; see docs/systems/platform-rules.md
 			premium = 0, -- bought with Robux
 		},
 		roster = {},

@@ -26,6 +26,6 @@ body:
     id: source
     attributes:
       label: Source and license
-      description: Who makes it (team, AI-assisted, commissioned, marketplace) and under what license.
+      description: Who makes it (studio, commissioned, marketplace) and under what license.
     validations:
       required: true

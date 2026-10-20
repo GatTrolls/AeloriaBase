@@ -6,7 +6,7 @@
 
 Created by **Owl On The Moon Studios** · Founder and creator: **Gee Otosaka** ([@GatTrolls](https://github.com/GatTrolls))
 
-[Game](docs/game/README.md) · [Systems](docs/systems/README.md) · [Roadmap](ROADMAP.md) · [Dev log](docs/devlog/README.md) · [Credits](CREDITS.md)
+[Game](docs/game/README.md) · [Systems](docs/systems/README.md) · [Roadmap](ROADMAP.md) · [Updates](docs/devlog/README.md) · [Credits](CREDITS.md)
 
 </div>
 
@@ -35,6 +35,7 @@ Every system is designed and built by Owl On The Moon Studios. Full write-ups ar
 | [Wish system](docs/systems/wish-system.md) | Banners, soft and hard pity, featured 50/50, published odds, regional policy checks | Built, tested |
 | [Elemental reactions](docs/systems/elemental-reactions.md) | Aura gauges with decay, 9 reactions, internal cooldowns | Built, tested |
 | [Damage model](docs/systems/damage-model.md) | Level-scaled defense, resistance curves, crits, amplify and transform damage | Built, tested |
+| [Platform rules](docs/systems/platform-rules.md) | Regional random-item policy, odds disclosure, text filtering | Applied |
 | [Combat, party, movement, AI and more](docs/systems/planned.md) | The rest of the game's systems, specified ahead of build | Designed |
 
 ## Tech stack
@@ -50,9 +51,27 @@ src/
   client/      Client scripts. Controllers/ holds one module per client system.
   shared/      Pure logic and config: Gacha, Elements, Damage, Net, Config/.
 tests/         Lune unit tests for everything in shared.
-docs/          Game info, system write-ups, roadmap, operations and the dev log.
+docs/          Game info, system write-ups and development updates.
 site/          The official website (static, hosted free on GitHub Pages).
 ```
+
+## Who this repository is for
+
+- **Developers** can read how each system works and learn from the code and tests.
+- **Contributors** can build Farborn with us; start with [CONTRIBUTING.md](CONTRIBUTING.md).
+- **Partners and investors** can see the game, the technology and the [roadmap](ROADMAP.md)
+  in one place. Business enquiries: contact Owl On The Moon Studios through
+  [@GatTrolls](https://github.com/GatTrolls).
+
+## Using our code
+
+The code is open source under the Apache License 2.0, so you can use it in your own Roblox
+games, including commercial ones. Keep the license and [NOTICE](NOTICE) with any copy, and credit
+us, for example:
+
+> Systems based on Farborn by Owl On The Moon Studios (github.com/GatTrolls/AeloriaBase)
+
+The game itself (name, story, characters and art) is not open source. See [License](#license).
 
 ## Building it yourself
 

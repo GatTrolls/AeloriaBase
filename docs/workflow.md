@@ -24,14 +24,7 @@
 | Scripts and config | This repo (`src/`) |
 | Terrain, maps, big models | The Studio place file, saved to Roblox; export key models to `assets/` as `.rbxm` when they change |
 | Meshes, textures, audio | Uploaded to Roblox under the group; keep source files (`.blend`, `.psd`) in cloud storage, not git |
-| Story, design, art direction | The design documents listed in `docs/design/README.md` |
-
-## Working with Claude in Studio
-
-Claude can run Luau, edit scripts, read the game tree and playtest through the Roblox Studio
-connection. Scripts edited only inside Studio are overwritten by the next Rojo sync, so any
-script change must also land in `src/`. Use Studio-side edits for building and inspecting, and
-the repo for code.
+| Story, design, art direction | Studio design documents (private) |
 
 ## Places
 

@@ -1,6 +1,6 @@
 --!strict
--- Banner definitions. Item ids are placeholders until the character roster is final
--- (see docs/design/README.md). Rates here are starting values for playtests, not final.
+-- Banner definitions. Item ids are placeholders until the character roster
+-- is announced. Rates here are starting values for playtests, not final.
 
 local Gacha = require(script.Parent.Parent.Gacha)
 
