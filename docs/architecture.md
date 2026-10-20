@@ -1,5 +1,8 @@
 # Architecture
 
+This page covers how the code is organised. Each system is explained in detail in
+[systems/](systems/README.md).
+
 ## Where code runs
 
 | Folder | Becomes in Studio | Runs on |

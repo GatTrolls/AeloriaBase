@@ -1,4 +1,4 @@
-# Contributing to Aeloria
+# Contributing to Farborn
 
 ## Workflow
 
@@ -23,7 +23,7 @@
   them in the private design documents and refer to them by placeholder id (`hero_placeholder_a`).
 - Only commit assets you made or have the right to use. Note the source and license of any
   third-party asset in the PR.
-- Aeloria is made for a broad audience including younger players. Keep content in line with
+- Farborn is made for a broad audience including younger players. Keep content in line with
   Roblox's Community Standards and the target age rating in docs/operations/compliance.md.
 
 ## Commit messages

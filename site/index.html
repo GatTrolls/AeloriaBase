@@ -3,49 +3,110 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Aeloria · Anime open-world RPG on Roblox</title>
-  <meta name="description" content="Aeloria is an anime open-world action RPG in development for Roblox. Explore, build a party of heroes and chain elemental reactions.">
+  <title>Farborn · Anime open-world RPG on Roblox</title>
+  <meta name="description" content="Farborn is an anime open-world action RPG in development for Roblox by Owl On The Moon Studios. Explore six nations, build a party of heroes and chain elemental reactions.">
+  <meta property="og:title" content="Farborn">
+  <meta property="og:description" content="An anime open-world action RPG for Roblox by Owl On The Moon Studios.">
+  <meta property="og:type" content="website">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="hero">
-    <nav class="nav">
-      <span class="brand">Aeloria</span>
+    <nav class="nav" aria-label="Main">
+      <span class="brand">Farborn</span>
+      <a href="#game">Game</a>
+      <a href="#systems">Systems</a>
       <a href="#news">Dev log</a>
       <a href="#roadmap">Roadmap</a>
-      <a href="#community">Community</a>
-      <a href="#press">Press</a>
+      <a href="#studio">Studio</a>
     </nav>
     <div class="hero-inner">
-      <p class="eyebrow">In development for Roblox</p>
-      <h1>Aeloria</h1>
-      <p class="tagline">Explore a hand-built world. Gather a party of heroes. Swap mid-fight and chain the elements together.</p>
+      <p class="eyebrow">Owl On The Moon Studios · in development for Roblox</p>
+      <h1>Farborn</h1>
+      <p class="tagline">You wake up at a campfire with no memories, take a job for some quick coin, and steal the wrong thing: the power of a god whose kingdom fell 500 years ago.</p>
       <div class="actions">
         <a class="button disabled" aria-disabled="true">Play on Roblox · coming later</a>
-        <a class="button ghost" href="#news">Read the dev log</a>
+        <a class="button ghost" href="#game">Learn more</a>
       </div>
     </div>
   </header>
 
   <main>
-    <section id="about" class="grid">
-      <article>
-        <h2>Explore</h2>
-        <p>Climb, glide and swim across a world with its own regions, secrets and puzzles.</p>
-      </article>
-      <article>
-        <h2>Fight together</h2>
-        <p>Lead a party of up to four and swap between them instantly to combine their powers.</p>
-      </article>
-      <article>
-        <h2>Grow your team</h2>
-        <p>Meet new heroes, level them up and find the combinations that suit how you play.</p>
-      </article>
+    <section id="game">
+      <h2>The game</h2>
+      <p class="lead">Aeloria is a world of six nations, each protected by a god. Above them drift the broken islands of a seventh kingdom that fell long ago. Travel from nation to nation, meet each god and find out who you really are.</p>
+      <div class="grid">
+        <article>
+          <h3>Explore six nations</h3>
+          <p>Climb, glide and swim across open regions. Every nation plays by its own rules, from festival islands to night-market canyons.</p>
+        </article>
+        <article>
+          <h3>Fight as a party</h3>
+          <p>Lead up to four heroes and swap between them instantly, mid-combo, to combine their powers.</p>
+        </article>
+        <article>
+          <h3>Seven elements</h3>
+          <p>Mix elements into reactions: melt, freeze, overload, sweep and more. Smart combos beat raw power.</p>
+        </article>
+        <article>
+          <h3>Grow your team</h3>
+          <p>Meet new heroes through the story and wishes. Odds and pity are always shown in the game.</p>
+        </article>
+        <article>
+          <h3>Play your way</h3>
+          <p>Choose to play as a boy or a girl. Explore solo or with friends in co-op.</p>
+        </article>
+        <article>
+          <h3>Made for everyone</h3>
+          <p>Built for kids and teens: colourful, stylised fights with no gore and no real-world religion.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="systems">
+      <h2>Under the hood</h2>
+      <p class="lead">Every system in Farborn is designed and built in-house. The code and the full technical write-ups are public on GitHub.</p>
+      <div class="grid systems">
+        <a class="card" href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/systems/elemental-reactions.md">
+          <span class="status built">Built</span>
+          <h3>Elemental reactions</h3>
+          <p>Aura gauges that decay over time, nine reactions and internal cooldowns.</p>
+        </a>
+        <a class="card" href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/systems/damage-model.md">
+          <span class="status built">Built</span>
+          <h3>Damage model</h3>
+          <p>Level-scaled defense, resistance curves with no immunity, crits and reaction damage.</p>
+        </a>
+        <a class="card" href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/systems/wish-system.md">
+          <span class="status built">Built</span>
+          <h3>Wish system</h3>
+          <p>Soft and hard pity, a featured 50/50 with a guarantee, published odds and regional rules.</p>
+        </a>
+        <a class="card" href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/systems/player-data.md">
+          <span class="status built">Built</span>
+          <h3>Player data</h3>
+          <p>Saves with retries, automatic upgrades for old saves and safe shutdowns.</p>
+        </a>
+        <a class="card" href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/systems/planned.md">
+          <span class="status designed">Designed</span>
+          <h3>Combat</h3>
+          <p>Instant feel on your screen, every hit confirmed by the server.</p>
+        </a>
+        <a class="card" href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/systems/planned.md">
+          <span class="status designed">Designed</span>
+          <h3>World, AI and co-op</h3>
+          <p>Streaming regions, telegraphed enemy attacks and four-player co-op.</p>
+        </a>
+      </div>
     </section>
 
     <section id="news">
       <h2>Dev log</h2>
       <ul class="posts">
+        <li>
+          <time datetime="2026-10-20">20 Oct 2026</time>
+          <a href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/devlog/2026-10-20-systems.md">The first combat systems are in</a>
+        </li>
         <li>
           <time datetime="2026-10-20">20 Oct 2026</time>
           <a href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/devlog/2026-10-20-day-zero.md">Day zero: the repo is up</a>
@@ -56,28 +117,24 @@
     <section id="roadmap">
       <h2>Roadmap</h2>
       <ol class="roadmap">
-        <li class="now"><strong>Foundation</strong> project setup, style guide, story</li>
+        <li class="now"><strong>Foundation</strong> engine systems, style guide, story</li>
         <li><strong>Combat slice</strong> one hero, one enemy, a minute of fighting that feels good</li>
         <li><strong>Core loop</strong> levels, gear, wishes, first quest</li>
-        <li><strong>First region</strong> a full area to explore</li>
+        <li><strong>First nation</strong> a full region to explore</li>
         <li><strong>Closed alpha</strong> community playtests</li>
         <li><strong>Launch</strong></li>
       </ol>
     </section>
 
-    <section id="community">
-      <h2>Community</h2>
-      <p>Official channels open as the game takes shape. Links will only ever appear here and on the Roblox experience page.</p>
-    </section>
-
-    <section id="press">
-      <h2>Press kit</h2>
-      <p>Fact sheet, logo and screenshots arrive with the first trailer.</p>
+    <section id="studio">
+      <h2>The studio</h2>
+      <p class="lead"><strong>Owl On The Moon Studios</strong> is an independent game studio founded by <strong>Gee Otosaka</strong>, making Farborn for Roblox.</p>
+      <p>Official community channels open as the game takes shape. Links will only ever appear here and on the Roblox game page. Press and creators: see the <a href="https://github.com/GatTrolls/AeloriaBase/blob/main/docs/operations/press-kit.md">press kit</a>.</p>
     </section>
   </main>
 
   <footer>
-    <p>Aeloria is an independent original game made on Roblox and is not affiliated with HoYoverse, Kuro Games or Roblox Corporation.</p>
+    <p>© 2026 Owl On The Moon Studios. Farborn is an independent original game made on Roblox and is not affiliated with HoYoverse, Kuro Games or Roblox Corporation.</p>
     <p>This site uses no cookies or tracking.</p>
   </footer>
 </body>

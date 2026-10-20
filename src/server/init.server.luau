@@ -32,4 +32,4 @@ for name, service in loaded do
 	end
 end
 
-print(`[Aeloria] Server started with {#Services:GetChildren()} services`)
+print(`[Farborn] Server started with {#Services:GetChildren()} services`)
