@@ -153,6 +153,34 @@ local function medallion(parent: Instance, heroId: string, diameter: number, ord
 	return disc
 end
 
+-- Shows the hero's model in a viewport when the game ships one; false when it does not.
+local function showModel(host: Instance, heroId: string): boolean
+	local models = ReplicatedStorage:FindFirstChild("CharacterRigs")
+	local template = models and models:FindFirstChild(heroId)
+	if not template or not template:IsA("Model") then
+		return false
+	end
+	local viewport = Instance.new("ViewportFrame")
+	viewport.Name = "Model"
+	viewport.BackgroundTransparency = 1
+	viewport.Size = UDim2.fromScale(1, 1)
+	viewport.Ambient = Color3.fromRGB(170, 170, 190)
+	viewport.LightColor = Color3.fromRGB(255, 244, 228)
+	viewport.LightDirection = Vector3.new(-0.4, -0.6, -0.7)
+	viewport.Parent = host
+	local model = template:Clone()
+	model.Parent = viewport
+	local size = model:GetExtentsSize()
+	local center = model:GetBoundingBox().Position
+	local camera = Instance.new("Camera")
+	local distance = math.max(size.Y * 0.9, 3) / math.tan(math.rad(35))
+	camera.FieldOfView = 70
+	camera.CFrame = CFrame.lookAt(center + Vector3.new(0, size.Y * 0.08, -distance * 0.82), center)
+	camera.Parent = viewport
+	viewport.CurrentCamera = camera
+	return true
+end
+
 function Party.build(parent: Frame, ctx: any)
 	local root = Kit.frame({ parent = parent, size = UDim2.fromScale(1, 1), name = "Party" })
 	local snapshot: any = ctx.profile.get()
@@ -956,10 +984,12 @@ function Party.build(parent: Frame, ctx: any)
 		for _, child in portraitHost:GetChildren() do
 			child:Destroy()
 		end
-		local disc = medallion(portraitHost, selectedId, 104)
-		disc.Position = UDim2.fromScale(0.5, 0.46)
-		disc.AnchorPoint = Vector2.new(0.5, 0.5)
 		Kit.gradient(portraitHost, Color.inkSoft, Color.night, 90)
+		if not showModel(portraitHost, selectedId) then
+			local disc = medallion(portraitHost, selectedId, 104)
+			disc.Position = UDim2.fromScale(0.5, 0.46)
+			disc.AnchorPoint = Vector2.new(0.5, 0.5)
+		end
 		local weapon = weaponOf(selectedId) or "sword"
 		local replaced = Kit.icon({
 			parent = weaponBadge,
