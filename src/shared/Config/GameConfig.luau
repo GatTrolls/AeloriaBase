@@ -11,6 +11,13 @@ local GameConfig = {
 	Party = {
 		MaxMembers = 4,
 		SwapCooldownSeconds = 1,
+		-- The party every player fights with in the combat slice, before rosters are wired in.
+		StarterParty = {
+			"hero_placeholder_a",
+			"hero_placeholder_b",
+			"hero_placeholder_c",
+			"hero_placeholder_d",
+		},
 	},
 
 	Gacha = {

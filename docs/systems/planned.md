@@ -3,42 +3,9 @@
 **Status:** designed · Each section is the spec the code will follow. Milestones refer to
 [ROADMAP.md](../../ROADMAP.md).
 
-## Combat (M1)
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant S as Server
-    C->>C: play attack animation, predict hit, show hit-stop and VFX
-    C->>S: AttackIntent(skillId, aim, clientTime)
-    S->>S: cooldown, stamina and range checks
-    S->>S: hitbox query at the server's copy of positions
-    S->>S: Elements.apply then Damage.computeHit
-    S-->>C: confirmed hits, damage numbers, reactions
-    C->>C: correct anything the prediction got wrong
-```
-
-- **Feel first, truth on the server.** The client plays the swing, hit-stop and VFX at once; the
-  server confirms the hit with spatial queries and owns damage.
-- **Kit per hero:** a 4-hit attack chain, a charged attack, a plunge, an elemental skill on a
-  cooldown and a burst that charges from energy.
-- **Hit-stop and poise:** short freezes on impact; enemies have poise that heavy hits break.
-
-## Party and swap (M1)
-
-Up to four heroes. Swapping is instant and keeps position and camera; HP, energy and cooldowns
-are kept per hero. A swap cooldown stops spam. The server owns the active slot.
-
-## Movement and stamina (M1)
-
-Sprint, dodge with brief invulnerability, climb, glide and swim, all sharing one stamina bar.
-The server tracks stamina from timestamps, so a modified client cannot fly or dodge forever.
-
-## Enemy AI (M1)
-
-A state machine per enemy: idle → alert → chase → wind-up → attack → recover, with stagger as
-an interrupt. Wind-ups are always telegraphed so a well-timed dodge beats any attack. Groups
-share an attack token so only one or two enemies swing at once.
+Combat, party and swap, movement and enemy AI are built: see [Combat](combat.md),
+[Party and swap](party.md), [Movement and camera](movement-and-camera.md) and
+[Enemy AI](enemy-ai.md).
 
 ## Character progression (M2)
 

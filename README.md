@@ -19,8 +19,8 @@ Farborn is an original open-world action RPG in the spirit of Genshin Impact and
 Waves, made for Roblox and for players aged roughly 10 and up. Explore six nations, build a party
 of four heroes, swap between them mid-fight and chain elements into reactions.
 
-**Status:** pre-production (milestone M0). The core engine systems below are built and tested;
-nothing is playable yet. *Farborn* is the working title.
+**Status:** milestone M1. The combat slice is playable in a grey-box test arena: a party of four,
+elemental reactions, movement and the first enemy. *Farborn* is the working title.
 
 ## Systems at a glance
 
@@ -35,8 +35,12 @@ Every system is designed and built by Owl On The Moon Studios. Full write-ups ar
 | [Wish system](docs/systems/wish-system.md) | Banners, soft and hard pity, featured 50/50, published odds, regional policy checks | Built, tested |
 | [Elemental reactions](docs/systems/elemental-reactions.md) | Aura gauges with decay, 9 reactions, internal cooldowns | Built, tested |
 | [Damage model](docs/systems/damage-model.md) | Level-scaled defense, resistance curves, crits, amplify and transform damage | Built, tested |
+| [Combat](docs/systems/combat.md) | Server-confirmed attack chains, skills and bursts with instant client feedback | Built, tested |
+| [Party and swap](docs/systems/party.md) | Four heroes, instant swaps, per-hero HP and energy | Built, tested |
+| [Movement and camera](docs/systems/movement-and-camera.md) | Sprint, dodge, climb and glide on server-owned stamina; lock-on camera | Built, tested |
+| [Enemy AI](docs/systems/enemy-ai.md) | Telegraphed attacks, attack tokens, poise and stagger | Built, tested |
 | [Platform rules](docs/systems/platform-rules.md) | Regional random-item policy, odds disclosure, text filtering | Applied |
-| [Combat, party, movement, AI and more](docs/systems/planned.md) | The rest of the game's systems, specified ahead of build | Designed |
+| [Progression, world, quests and more](docs/systems/planned.md) | The rest of the game's systems, specified ahead of build | Designed |
 
 ## Tech stack
 
@@ -49,7 +53,7 @@ lives in `src/shared` with no Roblox dependencies, so it is unit tested outside 
 src/
   server/      Server scripts. Services/ holds one module per game system.
   client/      Client scripts. Controllers/ holds one module per client system.
-  shared/      Pure logic and config: Gacha, Elements, Damage, Net, Config/.
+  shared/      Pure logic and config: Gacha, Elements, Damage, Combat/, Net, Config/.
 tests/         Lune unit tests for everything in shared.
 docs/          Game info, system write-ups and development updates.
 site/          The official website (static, hosted free on GitHub Pages).

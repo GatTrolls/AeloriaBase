@@ -20,6 +20,12 @@ Net.Names = table.freeze({
 	RequestPull = "RequestPull", -- RemoteFunction: (bannerId, count) -> results | error
 	GetBannerOdds = "GetBannerOdds", -- RemoteFunction: (bannerId) -> odds table
 	ProfileChanged = "ProfileChanged", -- RemoteEvent: server -> client snapshot
+	CombatAction = "CombatAction", -- RemoteEvent: client -> server (action, aim)
+	CombatFeedback = "CombatFeedback", -- RemoteEvent: server -> clients, confirmed hits and effects
+	MoveIntent = "MoveIntent", -- RemoteEvent: client -> server (intent, on)
+	MoveState = "MoveState", -- RemoteEvent: server -> client stamina and movement results
+	PartySwap = "PartySwap", -- RemoteEvent: client -> server (slot)
+	PartyState = "PartyState", -- RemoteEvent: server -> client party snapshot
 })
 
 local function getFolder(): Folder
