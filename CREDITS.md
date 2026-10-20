@@ -22,6 +22,14 @@ Farborn is built with these free tools. Thank you to their authors.
 | [Selene](https://github.com/Kampfkarren/selene) | Linting |
 | [Lune](https://github.com/lune-org/lune) | Running unit tests outside Studio |
 
+## Packages
+
+The game uses these open-source Luau packages, installed with Wally.
+
+| Package | Used for | License |
+| --- | --- | --- |
+| [ProfileStore](https://github.com/MadStudioRoblox/ProfileStore) by loleris | Session-locked player saves | Apache 2.0 |
+
 ## Contributors
 
 Want to help? Read [CONTRIBUTING.md](CONTRIBUTING.md). Contributors are listed here once their

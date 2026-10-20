@@ -8,7 +8,7 @@ covered by tests; "Designed" means the design is set and the code is next on the
 | --- | --- | --- | --- |
 | [Service framework](framework.md) | `src/server/init.server.luau`, `src/client/init.client.luau` | Studio | Built |
 | [Networking](networking.md) | `src/shared/Net.luau` | Studio | Built |
-| [Player data](player-data.md) | `src/server/Services/PlayerDataService.luau` | Studio | Built (starter) |
+| [Player data](player-data.md) | `src/server/Services/PlayerDataService.luau`, `src/server/Data/Migrations.luau` | `tests/Migrations.spec.luau` | Built |
 | [Wish system](wish-system.md) | `src/shared/Gacha.luau`, `src/server/Services/GachaService.luau` | `tests/Gacha.spec.luau` | Built |
 | [Elemental reactions](elemental-reactions.md) | `src/shared/Elements.luau`, `src/shared/Config/ElementConfig.luau`, `src/server/Combat/HitResolver.luau` | `tests/Elements.spec.luau` | Built |
 | [Damage model](damage-model.md) | `src/shared/Damage.luau` | `tests/Damage.spec.luau` | Built |

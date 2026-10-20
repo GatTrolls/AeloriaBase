@@ -7,12 +7,15 @@
         "$path": "src/shared"
       },
       "Packages": {
-        "$path": "Packages"
+        "$path": { "optional": "Packages" }
       }
     },
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
+      },
+      "ServerPackages": {
+        "$path": { "optional": "ServerPackages" }
       }
     },
     "StarterPlayer": {
