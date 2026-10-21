@@ -67,6 +67,55 @@ local function fadeOut(p: BasePart, seconds: number, goal: { [string]: any }?)
 	Debris:AddItem(p, seconds + 0.05)
 end
 
+-- A one-shot burst of particles from a point: `count` glints thrown out at `speed`, which cool
+-- from white to the colour and shrink away. `cone` is the spread in degrees (360 = a sphere).
+local SPARK_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+
+function Effects.burst(
+	position: Vector3,
+	color: Color3,
+	count: number,
+	speed: number,
+	size: number,
+	direction: Vector3?,
+	cone: number?
+)
+	local holder = Instance.new("Part")
+	holder.Anchored = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.CanTouch = false
+	holder.Transparency = 1
+	holder.Size = Vector3.one * 0.2
+	holder.CFrame = if direction and direction.Magnitude > 0.01
+		then CFrame.lookAt(position, position + direction)
+		else CFrame.new(position)
+	holder.Parent = folder()
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Texture = SPARK_TEXTURE
+	emitter.Color = ColorSequence.new(Color3.new(1, 1, 1):Lerp(color, 0.2), color)
+	emitter.LightEmission = 1
+	emitter.LightInfluence = 0
+	emitter.Lifetime = NumberRange.new(0.25, 0.5)
+	emitter.Speed = NumberRange.new(speed * 0.5, speed)
+	emitter.SpreadAngle = Vector2.new(cone or 360, cone or 360)
+	emitter.Drag = 4
+	emitter.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, size),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	emitter.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.7, 0.2),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	emitter.Rate = 0
+	emitter.EmissionDirection = Enum.NormalId.Front
+	emitter.Parent = holder
+	emitter:Emit(count)
+	Debris:AddItem(holder, 0.8)
+end
+
 -- A blade arc sweeping across `arc` degrees in front of the attacker.
 function Effects.slash(
 	origin: Vector3,
@@ -87,6 +136,7 @@ function Effects.slash(
 	)
 	local goal = base * CFrame.Angles(0, -half * direction, 0) * CFrame.new(0, 0, -range / 2)
 	TweenService:Create(blade, TweenInfo.new(0.12, Enum.EasingStyle.Quad), { CFrame = goal }):Play()
+	Effects.burst(origin + forward * range * 0.6, color, if heavy then 14 else 7, 16, 0.7, forward, 70)
 	task.delay(0.08, function()
 		fadeOut(blade, 0.15)
 	end)
@@ -112,6 +162,15 @@ function Effects.area(center: Vector3, radius: number, color: Color3, big: boole
 	ring.Shape = Enum.PartType.Cylinder
 	fadeOut(ring, if big then 0.55 else 0.35, { Size = Vector3.new(0.2, radius * 2, radius * 2) })
 
+	Effects.burst(
+		ground + Vector3.new(0, 0.5, 0),
+		color,
+		if big then 60 else 28,
+		radius * 3,
+		0.9,
+		Vector3.yAxis,
+		80
+	)
 	local height = if big then 30 else 14
 	local width = radius * 0.5
 	local column = effectPart(
@@ -129,6 +188,7 @@ function Effects.spark(position: Vector3, color: Color3, big: boolean?)
 	local ball = effectPart(Vector3.new(0.5, 0.5, 0.5), CFrame.new(position), color, 0.1)
 	ball.Shape = Enum.PartType.Ball
 	fadeOut(ball, 0.18, { Size = Vector3.new(size, size, size) })
+	Effects.burst(position, color, if big then 22 else 12, if big then 34 else 22, if big then 1.1 else 0.8)
 end
 
 -- A floating label that drifts up and fades. Used for damage numbers and reaction names.
