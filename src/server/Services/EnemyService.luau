@@ -40,6 +40,7 @@ local Net = require(Shared.Net)
 local ActionLog = require(script.Parent.Parent.Combat.ActionLog)
 local ArenaService = require(script.Parent.ArenaService)
 local PartyService = require(script.Parent.PartyService)
+local QuestService = require(script.Parent.QuestService)
 
 export type Burning = {
 	amount: number,
@@ -59,6 +60,8 @@ export type Enemy = {
 	telegraph: BasePart?,
 	target: Player?,
 	alive: boolean,
+	-- The player whose hit landed last; credited with the kill for quests.
+	lastHitBy: Player?,
 	-- Pile-On swaps used during the current Rattled window.
 	pileOns: number,
 }
@@ -406,6 +409,7 @@ local function spawnEnemy(def: Enemies.EnemyDef, spawnCFrame: CFrame): Enemy
 		telegraph = nil,
 		target = nil,
 		alive = true,
+		lastHitBy = nil,
 		pileOns = 0,
 	}
 	model.Parent = folder
@@ -417,6 +421,10 @@ end
 
 local function die(enemy: Enemy)
 	enemy.alive = false
+	local credited = enemy.lastHitBy
+	if credited and credited.Parent then
+		QuestService.report(credited, "defeat", enemy.def.id, 1)
+	end
 	EnemyBrain.kill(enemy.brain, now())
 	clearTelegraph(enemy)
 	setState(enemy, "dead")

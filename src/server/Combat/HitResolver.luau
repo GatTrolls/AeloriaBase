@@ -318,6 +318,7 @@ function HitResolver.resolve(
 	if composure > 0 then
 		EnemyService.addComposure(enemy, composure)
 	end
+	enemy.lastHitBy = player
 	EnemyService.applyDamage(enemy, hit.amount + bonus, spec.poise)
 
 	if enemy.alive and applied and applied.statusAfter == "Flame" then
