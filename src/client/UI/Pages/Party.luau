@@ -277,9 +277,24 @@ function Party.build(parent: Frame, ctx: any)
 		name = "SlotGrid",
 	})
 	Kit.grid(slotGrid, UDim2.new(0.5, -4, 0, 38), 6)
+	local presetRow = Kit.frame({
+		parent = left,
+		size = UDim2.new(1, -8, 0, 34),
+		position = UDim2.new(0, 0, 1, -126),
+		anchor = Vector2.new(0, 1),
+		name = "Presets",
+	})
+	Kit.list(
+		presetRow,
+		Enum.FillDirection.Horizontal,
+		4,
+		Enum.HorizontalAlignment.Left,
+		Enum.VerticalAlignment.Center
+	)
+	local savingPreset = false
 	local roster = Kit.scroll({
 		parent = left,
-		size = UDim2.new(1, -8, 1, -44 - 126),
+		size = UDim2.new(1, -8, 1, -44 - 126 - 40),
 		position = UDim2.fromOffset(0, 48),
 		name = "Roster",
 	})
@@ -918,6 +933,79 @@ function Party.build(parent: Frame, ctx: any)
 		end
 	end
 
+	local function savePreset(slot: number, party: { string })
+		if busy then
+			return
+		end
+		busy = true
+		task.spawn(function()
+			local result: { [string]: any }
+			if ctx.party and ctx.party.preset then
+				result = ctx.party.preset(slot, party)
+			else
+				local ok, reply = pcall(function()
+					return Net.func(Net.Names.PartyPreset):InvokeServer(slot, party)
+				end)
+				result = if ok and type(reply) == "table" then reply else { ok = false, error = "network" }
+			end
+			busy = false
+			if result.ok then
+				toast(Content.text("party.teamSaved"), "check")
+			else
+				toast(errorText(result.error), "info")
+			end
+		end)
+	end
+
+	local function drawPresets(party: { string })
+		for _, child in presetRow:GetChildren() do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+		local saved = snapshot and snapshot.presets or {}
+		for slot = 1, GameConfig.Party.PresetSlots do
+			local lineup = saved[slot]
+			local filled = type(lineup) == "table" and #lineup > 0
+			local button = Kit.button({
+				parent = presetRow,
+				text = tostring(slot),
+				style = if filled then "dark" else "paper",
+				size = UDim2.fromOffset(30, 30),
+				textSize = Theme.TextSize.small,
+				order = slot,
+				onClick = function()
+					if filled and not savingPreset then
+						request(function()
+							return editParty(lineup)
+						end, Content.text("party.saved"))
+					else
+						savingPreset = false
+						savePreset(slot, party)
+					end
+				end,
+			})
+			if savingPreset then
+				Kit.stroke(button, Color.brass, 2)
+			end
+		end
+		Kit.button({
+			parent = presetRow,
+			text = Content.text("party.saveTeam"),
+			style = if savingPreset then "primary" else "paper",
+			size = UDim2.fromOffset(52, 30),
+			textSize = Theme.TextSize.tiny,
+			order = 10,
+			onClick = function()
+				savingPreset = not savingPreset
+				if savingPreset then
+					toast(Content.text("party.teamPick"), "info")
+				end
+				drawPresets(party)
+			end,
+		})
+	end
+
 	local function drawRoster(heroes: { string }, party: { string })
 		for _, child in roster:GetChildren() do
 			if child:IsA("GuiObject") then
@@ -1097,6 +1185,7 @@ function Party.build(parent: Frame, ctx: any)
 		local entry = entryOf(snapshot, selectedId)
 		drawRoster(heroes, party)
 		drawSlots(party)
+		drawPresets(party)
 		drawSheet(kit, entry, party)
 		for _, child in tabContent:GetChildren() do
 			child:Destroy()

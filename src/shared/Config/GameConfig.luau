@@ -11,6 +11,7 @@ local GameConfig = {
 
 	Party = {
 		MaxMembers = 4,
+		PresetSlots = 5,
 		SwapCooldownSeconds = 1,
 		-- The party every player fights with in the combat slice, before rosters are wired in.
 		-- The free team every player ends up with: the main character plus the three story heroes.
@@ -52,6 +53,8 @@ local GameConfig = {
 		-- ProgressionService the first time a player joins.
 		roster = {},
 		party = {},
+		-- Saved team line-ups, slot 1..5 -> { heroId }.
+		presets = {},
 		weapons = {},
 		trinkets = {},
 		materials = {},

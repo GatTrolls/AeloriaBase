@@ -375,30 +375,63 @@ local function rebuild(player: Player, record: Record, heroIds: { string })
 	PartyService.pushState(player)
 end
 
-local function onEdit(player: Player, heroIds: unknown): { [string]: any }
-	local record = records[player]
-	if not record or type(heroIds) ~= "table" then
-		return { ok = false, error = "bad_request" }
+-- A line-up the player may field: 1..MaxMembers distinct heroes they own. Returns the cleaned list
+-- or an error code.
+local function cleanLineup(profile: any, heroIds: unknown): ({ string }?, string?)
+	if type(heroIds) ~= "table" then
+		return nil, "bad_request"
 	end
 	local list = heroIds :: { any }
 	if #list < 1 or #list > GameConfig.Party.MaxMembers then
-		return { ok = false, error = "bad_size" }
-	end
-	local profile = PlayerDataService.get(player)
-	if not profile then
-		return { ok = false, error = "not_loaded" }
+		return nil, "bad_size"
 	end
 	local clean: { string } = {}
 	local seen: { [string]: boolean } = {}
 	for _, heroId in list do
 		if type(heroId) ~= "string" or not Heroes[heroId] or seen[heroId] then
-			return { ok = false, error = "bad_hero" }
+			return nil, "bad_hero"
 		end
 		if not owned(profile, heroId) then
-			return { ok = false, error = "not_owned" }
+			return nil, "not_owned"
 		end
 		seen[heroId] = true
 		table.insert(clean, heroId)
+	end
+	return clean, nil
+end
+
+local function onPreset(player: Player, slot: unknown, heroIds: unknown): { [string]: any }
+	local profile = PlayerDataService.get(player)
+	if not profile then
+		return { ok = false, error = "not_loaded" }
+	end
+	if type(slot) ~= "number" or slot % 1 ~= 0 or slot < 1 or slot > GameConfig.Party.PresetSlots then
+		return { ok = false, error = "bad_request" }
+	end
+	local clean, problem = cleanLineup(profile, heroIds)
+	if not clean then
+		return { ok = false, error = problem }
+	end
+	if type(profile.presets) ~= "table" then
+		profile.presets = {}
+	end
+	profile.presets[slot] = clean
+	PlayerDataService.markChanged(player)
+	return { ok = true }
+end
+
+local function onEdit(player: Player, heroIds: unknown): { [string]: any }
+	local record = records[player]
+	if not record then
+		return { ok = false, error = "bad_request" }
+	end
+	local profile = PlayerDataService.get(player)
+	if not profile then
+		return { ok = false, error = "not_loaded" }
+	end
+	local clean, problem = cleanLineup(profile, heroIds)
+	if not clean then
+		return { ok = false, error = problem }
 	end
 	local humanoid = player.Character and player.Character:FindFirstChildOfClass("Humanoid")
 	if humanoid and humanoid.Health <= 0 then
@@ -415,6 +448,7 @@ function PartyService:Init()
 	feedbackRemote = Net.event(Net.Names.CombatFeedback)
 	Net.event(Net.Names.PartySwap).OnServerEvent:Connect(onSwap)
 	Net.func(Net.Names.PartyEdit).OnServerInvoke = onEdit
+	Net.func(Net.Names.PartyPreset).OnServerInvoke = onPreset
 end
 
 function PartyService:Start()
