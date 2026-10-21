@@ -6,6 +6,7 @@
 	game underneath is ready the moment the screen fades; tapping anywhere starts the game.
 ]]
 
+local Loading = require(script.Parent.Parent.UI.Screens.Loading)
 local ProfileController = require(script.Parent.ProfileController)
 local Title = require(script.Parent.Parent.UI.Screens.Title)
 local UIController = require(script.Parent.UIController)
@@ -21,12 +22,19 @@ function IntroController:Start()
 			end,
 		})
 	end)
+	local loading = Loading.build(UIController.layer("modals"))
+	loading.show()
 	task.spawn(function()
-		local deadline = os.clock() + 15
+		local started = os.clock()
+		local deadline = started + 15
 		while not ProfileController.get() and os.clock() < deadline do
+			loading.setProgress((os.clock() - started) / 15 * 0.9)
 			task.wait(0.1)
 		end
+		loading.setProgress(1)
+		task.wait(0.4)
 		UIController.open("title")
+		loading.hide()
 	end)
 end
 
