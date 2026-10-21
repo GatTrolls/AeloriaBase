@@ -35,6 +35,7 @@ local Heroes = require(ReplicatedStorage.Shared.Config.Heroes)
 
 local CameraController = require(script.Parent.CameraController)
 local CombatController = require(script.Parent.CombatController)
+local MapData = require(ReplicatedStorage.Shared.Config.MapData)
 local MovementController = require(script.Parent.MovementController)
 local PartyController = require(script.Parent.PartyController)
 local ProfileController = require(script.Parent.ProfileController)
@@ -671,6 +672,124 @@ local function buildTracker()
 	end)
 end
 
+-- A round minimap, top right: found places around the character, turning with the camera.
+local MINIMAP_SIZE = 124
+local MINIMAP_RANGE = 140
+local MINIMAP_COLORS: { [string]: Color3 } = {
+	waystone = Theme.Color.star,
+	starwell = Theme.Color.sea,
+	camp = Theme.Color.coral,
+	landmark = Theme.Color.violet,
+}
+
+local function buildMinimap()
+	local disc = make("Frame", {
+		Name = "Minimap",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -16, 0, 16),
+		Size = UDim2.fromOffset(MINIMAP_SIZE, MINIMAP_SIZE),
+		BackgroundColor3 = INK,
+		BackgroundTransparency = 0.25,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+	}, gui)
+	corner(disc, MINIMAP_SIZE)
+	make("UIStroke", { Color = Theme.Color.brass, Thickness = 2.5, Transparency = 0.1 }, disc)
+	for index = 1, 2 do
+		local ring = make("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromScale(index * 0.5, index * 0.5),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+		}, disc)
+		corner(ring, MINIMAP_SIZE)
+		make("UIStroke", { Color = Theme.Color.inkLine, Thickness = 1, Transparency = 0.5 }, ring)
+	end
+	local markers = make("Frame", {
+		Name = "Markers",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+	}, disc)
+	local me = make("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(10, 10),
+		BackgroundColor3 = PAPER,
+		BorderSizePixel = 0,
+		Rotation = 45,
+		ZIndex = 5,
+	}, disc)
+	make("UIStroke", { Color = INK, Thickness = 1.5 }, me)
+	local north = make("TextLabel", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Size = UDim2.fromOffset(16, 16),
+		BackgroundTransparency = 1,
+		TextColor3 = Theme.Color.brassLight,
+		FontFace = Theme.Font.heavy,
+		TextSize = 14,
+		Text = "N",
+		ZIndex = 6,
+	}, disc)
+
+	local pool: { Frame } = {}
+	local snapshot: any = nil
+	ProfileController.onChanged(function(value)
+		snapshot = value
+	end)
+	local region = MapData.Regions[1]
+	RunService.RenderStepped:Connect(function()
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local camera = workspace.CurrentCamera
+		if not (root and camera) then
+			return
+		end
+		local look = camera.CFrame.LookVector
+		look = Vector3.new(look.X, 0, look.Z)
+		if look.Magnitude < 0.01 then
+			return
+		end
+		look = look.Unit
+		local right = look:Cross(Vector3.yAxis)
+		local half = MINIMAP_SIZE / 2
+		local scale = (half - 8) / MINIMAP_RANGE
+		local function toMap(offset: Vector3, limit: number): (number, number)
+			local x = offset:Dot(right) * scale
+			local y = -offset:Dot(look) * scale
+			local length = math.sqrt(x * x + y * y)
+			if length > limit then
+				x, y = x / length * limit, y / length * limit
+			end
+			return half + x, half + y
+		end
+		local nx, ny = toMap(Vector3.zAxis * -MINIMAP_RANGE, half - 10)
+		north.Position = UDim2.fromOffset(nx, ny)
+		local shown = MapData.visible(region, snapshot and snapshot.flags)
+		for index, point in shown do
+			local marker = pool[index]
+			if not marker then
+				marker = make("Frame", {
+					AnchorPoint = Vector2.new(0.5, 0.5),
+					Size = UDim2.fromOffset(9, 9),
+					BorderSizePixel = 0,
+					ZIndex = 3,
+				}, markers)
+				corner(marker, 9)
+				pool[index] = marker
+			end
+			local offset = Vector3.new(point.x, 0, point.z) - Vector3.new(root.Position.X, 0, root.Position.Z)
+			local px, py = toMap(offset, half - 6)
+			marker.Position = UDim2.fromOffset(px, py)
+			marker.BackgroundColor3 = MINIMAP_COLORS[point.kind] or PAPER
+			marker.Visible = true
+		end
+		for index = #shown + 1, #pool do
+			pool[index].Visible = false
+		end
+	end)
+end
+
 function HudController:Start()
 	gui = make(
 		"ScreenGui",
@@ -680,6 +799,7 @@ function HudController:Start()
 
 	buildPartyList()
 	buildTracker()
+	buildMinimap()
 	buildBars()
 	buildAbilityButtons()
 	inputMode = initialMode()
