@@ -220,4 +220,98 @@ function Progression.raiseTalent(
 	return true, nil
 end
 
+-- Weapons level the same way heroes do: Glint per level, a cap that ascension raises. Higher
+-- rarities cost more and hit harder.
+local WEAPON_COST_SCALE = { [3] = 0.5, [4] = 0.8, [5] = 1.2 }
+local WEAPON_BASE_ATK = { [3] = 30, [4] = 42, [5] = 55 }
+
+function Progression.weaponScale(rarity: number): number
+	return WEAPON_COST_SCALE[math.clamp(rarity, 3, 5)]
+end
+
+function Progression.weaponLevelCost(rarity: number, level: number): number
+	return math.floor(Progression.levelCost(level) * Progression.weaponScale(rarity))
+end
+
+function Progression.weaponAscendCost(rarity: number, ascension: number): number
+	return math.floor(Progression.ascendCost(ascension) * Progression.weaponScale(rarity))
+end
+
+-- The ATK a weapon adds at a level and ascension.
+function Progression.weaponAtk(rarity: number, level: number, ascension: number?): number
+	local base = WEAPON_BASE_ATK[math.clamp(rarity, 3, 5)]
+	return math.floor(base * Progression.statMultiplier(level, ascension or 0))
+end
+
+local function weaponEntry(profile: { [string]: any }, itemId: string): { [string]: any }?
+	local weapons = profile.weapons
+	return weapons and weapons[itemId]
+end
+
+function Progression.weaponLevelBlock(profile: { [string]: any }, itemId: string, rarity: number): string?
+	local entry = weaponEntry(profile, itemId)
+	if not entry then
+		return "not_owned"
+	end
+	local level = entry.level or 1
+	local ascension = entry.ascension or 0
+	if level >= Progression.cap(ascension) then
+		return if ascension >= Progression.MaxAscension then "max_level" else "needs_ascension"
+	end
+	if glint(profile) < Progression.weaponLevelCost(rarity, level) then
+		return "not_enough_glint"
+	end
+	return nil
+end
+
+function Progression.weaponLevelUp(
+	profile: { [string]: any },
+	itemId: string,
+	rarity: number
+): (boolean, string?)
+	local block = Progression.weaponLevelBlock(profile, itemId, rarity)
+	if block then
+		return false, block
+	end
+	local entry = profile.weapons[itemId]
+	local level = entry.level or 1
+	spend(profile, Progression.weaponLevelCost(rarity, level))
+	entry.level = level + 1
+	return true, nil
+end
+
+function Progression.weaponAscendBlock(profile: { [string]: any }, itemId: string, rarity: number): string?
+	local entry = weaponEntry(profile, itemId)
+	if not entry then
+		return "not_owned"
+	end
+	local ascension = entry.ascension or 0
+	if ascension >= Progression.MaxAscension then
+		return "max_ascension"
+	end
+	if (entry.level or 1) < Progression.cap(ascension) then
+		return "needs_level"
+	end
+	if glint(profile) < Progression.weaponAscendCost(rarity, ascension) then
+		return "not_enough_glint"
+	end
+	return nil
+end
+
+function Progression.weaponAscend(
+	profile: { [string]: any },
+	itemId: string,
+	rarity: number
+): (boolean, string?)
+	local block = Progression.weaponAscendBlock(profile, itemId, rarity)
+	if block then
+		return false, block
+	end
+	local entry = profile.weapons[itemId]
+	local ascension = entry.ascension or 0
+	spend(profile, Progression.weaponAscendCost(rarity, ascension))
+	entry.ascension = ascension + 1
+	return true, nil
+end
+
 return Progression

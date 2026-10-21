@@ -11,6 +11,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Content = require(ReplicatedStorage.Shared.Content)
 local Items = require(ReplicatedStorage.Shared.Config.Items)
+local Net = require(ReplicatedStorage.Shared.Net)
+local Progression = require(ReplicatedStorage.Shared.Config.Progression)
 
 local ItemCard = require(script.Parent.Parent.Components.ItemCard)
 local Kit = require(script.Parent.Parent.Kit)
@@ -37,6 +39,8 @@ function Bag.build(parent: Frame, ctx: any)
 	local activeTab = "weapons"
 	local snapshot: any = ctx.profile.get()
 	local refresh: () -> ()
+	local selectedWeapon: string? = nil
+	local busy = false
 
 	Kit.text({
 		parent = root,
@@ -84,6 +88,139 @@ function Bag.build(parent: Frame, ctx: any)
 		})
 	end
 
+	local function toast(text: string, icon: string?)
+		if ctx.ui.toast then
+			ctx.ui.toast({ text = text, icon = icon or "info" })
+		end
+	end
+
+	local function upgrade(action: string, itemId: string)
+		if busy then
+			return
+		end
+		busy = true
+		task.spawn(function()
+			local result: { [string]: any }
+			if ctx.progression then
+				result = ctx.progression.act(action, itemId)
+			else
+				local ok, reply = pcall(function()
+					return Net.func(Net.Names.Progression):InvokeServer(action, itemId)
+				end)
+				result = if ok and type(reply) == "table" then reply else { ok = false, error = "network" }
+			end
+			busy = false
+			if not result.ok then
+				local key = `party.error.{result.error or "network"}`
+				local text = Content.text(key)
+				toast(if text ~= key then text else Content.text("party.error.network"), "info")
+			end
+		end)
+	end
+
+	local function drawWeaponDetail(weapons: any)
+		local id = selectedWeapon
+		local entry = id and weapons[id]
+		local item = id and Items.get(id)
+		local panel = Kit.panel({
+			style = "soft",
+			parent = body,
+			size = UDim2.new(0, 304, 1, -4),
+			position = UDim2.fromScale(1, 0),
+			anchor = Vector2.new(1, 0),
+			radius = 14,
+			name = "Detail",
+		})
+		panel.BackgroundColor3 = Color.paperShade
+		if not (id and entry and item) then
+			Kit.text({
+				parent = panel,
+				text = Content.text("bag.pickWeapon"),
+				font = "hand",
+				textSize = Theme.TextSize.label,
+				color = Color.textFaint,
+				size = UDim2.fromScale(1, 1),
+				align = Enum.TextXAlignment.Center,
+			})
+			return
+		end
+		local level = entry.level or 1
+		local ascension = entry.ascension or 0
+		local cap = Progression.cap(ascension)
+		Kit.text({
+			parent = panel,
+			text = Content.itemName(id),
+			font = "title",
+			textSize = Theme.TextSize.heading,
+			color = Color.textDark,
+			size = UDim2.new(1, -24, 0, 34),
+			position = UDim2.fromOffset(14, 12),
+			truncate = true,
+		})
+		Kit.stars({
+			parent = panel,
+			filled = item.rarity,
+			total = item.rarity,
+			starSize = 18,
+			position = UDim2.fromOffset(14, 50),
+		})
+		local lines = {
+			Content.format("bag.weaponLevel", { level = level, cap = cap }),
+			Content.format("bag.weaponAscension", { step = ascension, max = Progression.MaxAscension }),
+			Content.format("bag.weaponAtk", { atk = Progression.weaponAtk(item.rarity, level, ascension) }),
+			Content.format("bag.weaponPolish", { polish = entry.polish or 1 }),
+			Content.format("bag.weaponCopies", { count = entry.count or 0 }),
+		}
+		for index, line in lines do
+			Kit.text({
+				parent = panel,
+				text = line,
+				font = if index <= 3 then "heavy" else "body",
+				textSize = Theme.TextSize.label,
+				color = if index <= 3 then Color.textDark else Color.textFaint,
+				size = UDim2.new(1, -28, 0, 26),
+				position = UDim2.fromOffset(14, 82 + (index - 1) * 28),
+			})
+		end
+		local levelBlock = Progression.weaponLevelBlock(snapshot or {}, id, item.rarity)
+		local ascendBlock = Progression.weaponAscendBlock(snapshot or {}, id, item.rarity)
+		local atCap = level >= cap
+		local levelButton = Kit.button({
+			parent = panel,
+			text = if atCap and ascension >= Progression.MaxAscension
+				then Content.text("common.max")
+				else Content.format(
+					"bag.levelFor",
+					{ cost = Theme.count(Progression.weaponLevelCost(item.rarity, level)) }
+				),
+			style = "primary",
+			size = UDim2.new(1, -28, 0, 38),
+			position = UDim2.new(0, 14, 1, -96),
+			textSize = Theme.TextSize.small,
+			onClick = function()
+				upgrade("weaponLevel", id)
+			end,
+		})
+		Kit.setDisabled(levelButton, levelBlock ~= nil)
+		local ascendButton = Kit.button({
+			parent = panel,
+			text = if ascension >= Progression.MaxAscension
+				then Content.text("common.max")
+				else Content.format(
+					"bag.ascendFor",
+					{ cost = Theme.count(Progression.weaponAscendCost(item.rarity, ascension)) }
+				),
+			style = "paper",
+			size = UDim2.new(1, -28, 0, 38),
+			position = UDim2.new(0, 14, 1, -50),
+			textSize = Theme.TextSize.small,
+			onClick = function()
+				upgrade("weaponAscend", id)
+			end,
+		})
+		Kit.setDisabled(ascendButton, ascendBlock ~= nil)
+	end
+
 	local function drawWeapons()
 		local weapons = snapshot and snapshot.weapons or {}
 		local ids = sortedKeys(weapons, function(a, b)
@@ -100,7 +237,10 @@ function Bag.build(parent: Frame, ctx: any)
 			empty(Content.text("bag.empty"))
 			return
 		end
-		local scroll = Kit.scroll({ parent = body, size = UDim2.fromScale(1, 1) })
+		if not selectedWeapon or not weapons[selectedWeapon] then
+			selectedWeapon = ids[1]
+		end
+		local scroll = Kit.scroll({ parent = body, size = UDim2.new(1, -316, 1, 0) })
 		Kit.grid(scroll, UDim2.fromOffset(132, 188), 12)
 		Kit.padding(scroll, 6, 6)
 		for index, id in ids do
@@ -110,9 +250,15 @@ function Bag.build(parent: Frame, ctx: any)
 				itemId = id,
 				order = index,
 				badge = if (entry.polish or 1) > 1 then `P{entry.polish}` else nil,
+				selected = id == selectedWeapon,
 				colorblind = snapshot and snapshot.settings and snapshot.settings.colorblind,
+				onClick = function()
+					selectedWeapon = id
+					refresh()
+				end,
 			})
 		end
+		drawWeaponDetail(weapons)
 	end
 
 	local function drawMaterials()

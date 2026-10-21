@@ -196,6 +196,14 @@ local Strings: { [string]: string } = {
 	["bag.weapons"] = "Weapons",
 	["bag.trinkets"] = "Trinkets",
 	["bag.empty"] = "Nothing here yet.",
+	["bag.pickWeapon"] = "Pick a weapon to see it.",
+	["bag.weaponLevel"] = "Lv. {level} / {cap}",
+	["bag.weaponAscension"] = "Ascension {step} / {max}",
+	["bag.weaponAtk"] = "ATK +{atk}",
+	["bag.weaponPolish"] = "Polish {polish}",
+	["bag.weaponCopies"] = "Copies owned: {count}",
+	["bag.levelFor"] = "Level up - {cost}",
+	["bag.ascendFor"] = "Ascend - {cost}",
 
 	-- Story and quests
 	["quest.title"] = "Quest log",

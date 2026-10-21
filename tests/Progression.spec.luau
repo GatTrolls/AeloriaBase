@@ -97,4 +97,36 @@ return {
 		TestKit.equal(at90.hp > at20.hp * 3, true)
 		TestKit.equal(at90.energy > 1, true)
 	end,
+
+	["a weapon levels with Glint up to its cap, then needs ascension"] = function()
+		local p = {
+			currencies = { glint = 1000000 },
+			weapons = { w = { count = 1, polish = 1, level = 1, exp = 0 } },
+		}
+		for _ = 1, 19 do
+			TestKit.equal(Progression.weaponLevelUp(p, "w", 4), true)
+		end
+		TestKit.equal(p.weapons.w.level, 20)
+		local ok, why = Progression.weaponLevelUp(p, "w", 4)
+		TestKit.equal(ok, false)
+		TestKit.equal(why, "needs_ascension")
+		TestKit.equal(Progression.weaponAscend(p, "w", 4), true)
+		TestKit.equal(p.weapons.w.ascension, 1)
+		TestKit.equal(Progression.weaponLevelUp(p, "w", 4), true)
+	end,
+
+	["weapon upgrades need the weapon and the Glint"] = function()
+		local p =
+			{ currencies = { glint = 0 }, weapons = { w = { count = 1, polish = 1, level = 1, exp = 0 } } }
+		local _, why = Progression.weaponLevelUp(p, "w", 5)
+		TestKit.equal(why, "not_enough_glint")
+		local _, missing = Progression.weaponLevelUp(p, "nope", 5)
+		TestKit.equal(missing, "not_owned")
+	end,
+
+	["higher rarity weapons cost more and hit harder"] = function()
+		TestKit.equal(Progression.weaponLevelCost(5, 10) > Progression.weaponLevelCost(3, 10), true)
+		TestKit.equal(Progression.weaponAtk(5, 40, 2) > Progression.weaponAtk(3, 40, 2), true)
+		TestKit.equal(Progression.weaponAtk(4, 50, 3) > Progression.weaponAtk(4, 20, 0), true)
+	end,
 }

@@ -8,7 +8,7 @@
 	it is about to be charged; the profile only changes here.
 
 	  Progression remote: (action, heroId, talent?) -> { ok, error? }
-	    action: "levelUp" | "ascend" | "talent"
+	    action: "levelUp" | "ascend" | "talent" | "weaponLevel" | "weaponAscend" (weapons pass the item id)
 ]]
 
 local Players = game:GetService("Players")
@@ -16,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage.Shared.Config.GameConfig)
 local Heroes = require(ReplicatedStorage.Shared.Config.Heroes)
+local Items = require(ReplicatedStorage.Shared.Config.Items)
 local Net = require(ReplicatedStorage.Shared.Net)
 local Progression = require(ReplicatedStorage.Shared.Config.Progression)
 local RateLimit = require(ReplicatedStorage.Shared.RateLimit)
@@ -49,12 +50,32 @@ local function handle(player: Player, action: unknown, heroId: unknown, talent: 
 	if not RateLimit.allow(limiter, player, os.clock()) then
 		return { ok = false, error = "too_fast" }
 	end
-	if type(action) ~= "string" or type(heroId) ~= "string" or not Heroes[heroId] then
+	if type(action) ~= "string" or type(heroId) ~= "string" then
 		return { ok = false, error = "bad_request" }
 	end
 	local profile = PlayerDataService.get(player)
 	if not profile then
 		return { ok = false, error = "not_loaded" }
+	end
+	if action == "weaponLevel" or action == "weaponAscend" then
+		-- For weapons the second argument is the item id.
+		local item = Items.get(heroId)
+		if not item or item.kind ~= "weapon" then
+			return { ok = false, error = "bad_request" }
+		end
+		local done, problem
+		if action == "weaponLevel" then
+			done, problem = Progression.weaponLevelUp(profile, heroId, item.rarity)
+		else
+			done, problem = Progression.weaponAscend(profile, heroId, item.rarity)
+		end
+		if done then
+			PlayerDataService.markChanged(player)
+		end
+		return { ok = done, error = problem }
+	end
+	if not Heroes[heroId] then
+		return { ok = false, error = "bad_request" }
 	end
 	if not owns(profile, heroId) then
 		return { ok = false, error = "not_owned" }
